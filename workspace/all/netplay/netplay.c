@@ -7,11 +7,18 @@
  * - Frame buffer: circular buffer storing input history
  * - Host = Player 1, Client = Player 2 (always)
  * - Both devices run identical emulation with identical inputs
+ *
+ * RetroArch compatibility:
+ * - When connecting as client, protocol is auto-detected
+ * - If the host speaks RA protocol (RANP), rollback mode is engaged
+ * - If the host speaks NextUI protocol, lockstep mode is used (unchanged)
  */
 
 #define _GNU_SOURCE  // For strcasestr
 
 #include "netplay.h"
+#include "netplay_rollback.h"
+#include "ra_protocol.h"
 #include "netplay_helper.h"  // For stopHotspotAndRestoreWiFiAsync, netplay_connected_to_hotspot
 #include "network_common.h"
 #include "defines.h"  // Must come before api.h for BTN_ID_COUNT
@@ -141,6 +148,16 @@ static struct {
     // Initialization flag
     bool initialized;
 
+    // Rollback mode (RA compatibility)
+    bool rollback_mode;               // true when connected to RA host
+    bool protocol_detected;           // true after protocol detection completed
+    Netplay_CoreRunFn core_run_fn;    // core.run for rollback replay
+
+    // Core info for RA handshake
+    char ra_core_name[32];
+    char ra_core_version[32];
+    uint32_t ra_content_crc;
+
 } np = {0};
 
 // Forward declarations
@@ -149,6 +166,9 @@ static bool recv_packet(PacketHeader* hdr, void* data, uint16_t max_size, int ti
 static void* listen_thread_func(void* arg);
 static FrameInput* get_frame_slot(uint32_t frame);
 static void init_frame_buffer(void);
+static bool detect_and_init_protocol(Netplay_SerializeSizeFn serialize_size_fn,
+                                     Netplay_SerializeFn serialize_fn,
+                                     Netplay_UnserializeFn unserialize_fn);
 
 //////////////////////////////////////////////////////////////////////////////
 // Initialization
@@ -172,6 +192,12 @@ void Netplay_init(void) {
 
 void Netplay_quit(void) {
     if (!np.initialized) return;
+
+    // Clean up rollback engine if active
+    if (np.rollback_mode) {
+        Rollback_quit();
+        np.rollback_mode = false;
+    }
 
     // Capture hotspot state before cleanup
     bool was_host = (np.mode == NETPLAY_HOST);
@@ -485,6 +511,18 @@ int Netplay_connectToHost(const char* ip, uint16_t port) {
 }
 
 void Netplay_disconnect(void) {
+    // If in rollback mode, let the rollback engine handle disconnect
+    if (np.rollback_mode) {
+        Rollback_disconnect();
+        np.rollback_mode = false;
+        np.protocol_detected = false;
+        np.mode = NETPLAY_OFF;
+        np.state = NETPLAY_STATE_DISCONNECTED;
+        np.tcp_fd = -1;  // Rollback_disconnect closed it
+        snprintf(np.status_msg, sizeof(np.status_msg), "Disconnected");
+        return;
+    }
+
     if (np.tcp_fd >= 0) {
         send_packet(CMD_DISCONNECT, 0, NULL, 0);
         close(np.tcp_fd);
@@ -719,6 +757,11 @@ bool Netplay_preFrame(void) {
 }
 
 uint16_t Netplay_getInputState(unsigned port) {
+    // Rollback mode: inputs come from rollback engine
+    if (np.rollback_mode) {
+        return Rollback_getInput(port);
+    }
+
     if (!Netplay_isConnected()) return 0;
 
     pthread_mutex_lock(&np.mutex);
@@ -730,6 +773,11 @@ uint16_t Netplay_getInputState(unsigned port) {
 }
 
 uint32_t Netplay_getPlayerButtons(unsigned port, uint32_t local_buttons) {
+    // Rollback mode: inputs come from rollback engine
+    if (np.rollback_mode && Rollback_isConnected()) {
+        return Rollback_getInput(port);
+    }
+
     // When netplay active, inputs come from the synchronized frame buffer
     // Host = Player 1, Client = Player 2 (always)
     // Both devices see identical inputs for same frame
@@ -745,6 +793,12 @@ void Netplay_setLocalInput(uint16_t input) {
 }
 
 void Netplay_postFrame(void) {
+    // Rollback mode: delegate to rollback engine
+    if (np.rollback_mode) {
+        Rollback_postFrame();
+        return;
+    }
+
     if (!Netplay_isConnected()) return;
 
     pthread_mutex_lock(&np.mutex);
@@ -758,7 +812,9 @@ bool Netplay_shouldStall(void) {
 }
 
 // Optimization: Uses cached value instead of checking state each call
+// In rollback mode, silence audio during replay frames
 bool Netplay_shouldSilenceAudio(void) {
+    if (np.rollback_mode) return Rollback_isReplaying();
     return np.audio_should_silence;
 }
 
@@ -892,6 +948,7 @@ NetplayState Netplay_getState(void) { return np.state; }
 bool Netplay_isUsingHotspot(void) { return np.using_hotspot; }
 
 bool Netplay_isConnected(void) {
+    if (np.rollback_mode) return Rollback_isConnected();
     return np.tcp_fd >= 0 &&
            (np.state == NETPLAY_STATE_SYNCING ||
             np.state == NETPLAY_STATE_PLAYING ||
@@ -900,10 +957,14 @@ bool Netplay_isConnected(void) {
 }
 
 bool Netplay_isActive(void) {
+    if (np.rollback_mode) return Rollback_isActive();
     return np.state == NETPLAY_STATE_PLAYING;
 }
 
-const char* Netplay_getStatusMessage(void) { return np.status_msg; }
+const char* Netplay_getStatusMessage(void) {
+    if (np.rollback_mode) return Rollback_getStatusMessage();
+    return np.status_msg;
+}
 
 const char* Netplay_getLocalIP(void) {
     // Refresh IP if not in an active session (to avoid returning stale hotspot IP)
@@ -923,6 +984,10 @@ bool Netplay_hasNetworkConnection(void) {
 //////////////////////////////////////////////////////////////////////////////
 
 void Netplay_pause(void) {
+    if (np.rollback_mode) {
+        Rollback_pause();
+        return;
+    }
     if (!Netplay_isConnected()) return;
 
     pthread_mutex_lock(&np.mutex);
@@ -934,6 +999,10 @@ void Netplay_pause(void) {
 }
 
 void Netplay_resume(void) {
+    if (np.rollback_mode) {
+        Rollback_resume();
+        return;
+    }
     if (!Netplay_isConnected()) return;
 
     pthread_mutex_lock(&np.mutex);
@@ -977,11 +1046,34 @@ int Netplay_update(uint16_t local_input,
                    Netplay_SerializeSizeFn serialize_size_fn,
                    Netplay_SerializeFn serialize_fn,
                    Netplay_UnserializeFn unserialize_fn) {
+
+    // If already in rollback mode, dispatch to rollback engine
+    if (np.rollback_mode) {
+        if (!Rollback_isConnected()) {
+            Netplay_disconnect();
+            return 1;  // Run frame normally after disconnect
+        }
+        return Rollback_update(local_input);
+    }
+
     // Handle state sync when connection is established
     if (Netplay_needsStateSync()) {
         if (!serialize_size_fn || !serialize_fn || !unserialize_fn) {
             Netplay_disconnect();
             return 1;  // Run frame normally after disconnect
+        }
+
+        // Protocol detection for client mode:
+        // NextUI host sends state data first (within ~16ms).
+        // RA host waits for client header first (never sends unprompted).
+        // We peek with a short timeout to detect which protocol the host speaks.
+        if (np.mode == NETPLAY_CLIENT && !np.protocol_detected) {
+            if (detect_and_init_protocol(serialize_size_fn, serialize_fn, unserialize_fn)) {
+                // Switched to rollback mode - dispatch to rollback engine from now on
+                return 0;  // Skip this frame (rollback init completed)
+            }
+            // Not RA - proceed with normal NextUI lockstep state sync
+            np.protocol_detected = true;
         }
 
         size_t state_size = serialize_size_fn();
@@ -1140,4 +1232,110 @@ static bool recv_packet(PacketHeader* hdr, void* data, uint16_t max_size, int ti
     }
 
     return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Protocol Detection & Rollback Mode
+//////////////////////////////////////////////////////////////////////////////
+
+// Detect whether the remote host speaks RA or NextUI protocol.
+// Called once during the first state sync attempt for client mode.
+//
+// Detection method:
+//   - NextUI host sends state data first (CMD_STATE_HDR within ~16ms)
+//   - RA host waits for client header (never sends first)
+//   - We peek with 500ms timeout: data = NextUI, no data = try RA handshake
+//
+// Returns true if RA protocol detected and rollback mode initialized.
+// Returns false if NextUI protocol detected (caller proceeds with lockstep).
+static bool detect_and_init_protocol(Netplay_SerializeSizeFn serialize_size_fn,
+                                     Netplay_SerializeFn serialize_fn,
+                                     Netplay_UnserializeFn unserialize_fn) {
+    if (np.tcp_fd < 0 || np.mode != NETPLAY_CLIENT) return false;
+
+    // Peek at incoming data with 500ms timeout
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(np.tcp_fd, &fds);
+    struct timeval tv = {.tv_sec = 0, .tv_usec = 500000};  // 500ms
+
+    int sel = select(np.tcp_fd + 1, &fds, NULL, NULL, &tv);
+
+    if (sel > 0) {
+        // Data available from host - this is a NextUI host sending state
+        // Proceed with normal lockstep protocol
+        LOG_info("Netplay: data received from host - using NextUI lockstep protocol\n");
+        return false;
+    }
+
+    // No data received within 500ms - likely an RA host waiting for our header
+    LOG_info("Netplay: no data from host in 500ms - attempting RA handshake\n");
+
+    if (!np.core_run_fn) {
+        LOG_info("Netplay: core_run callback not set, cannot use rollback mode\n");
+        return false;
+    }
+
+    // Attempt RA client handshake
+    RA_HandshakeCtx ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.tcp_fd = np.tcp_fd;
+    ctx.content_crc = np.ra_content_crc;
+    strncpy(ctx.nick, "NextUI", RA_NICK_LEN - 1);
+    strncpy(ctx.core_name, np.ra_core_name, RA_CORE_NAME_LEN - 1);
+    strncpy(ctx.core_version, np.ra_core_version, RA_CORE_VERSION_LEN - 1);
+
+    if (RA_clientHandshake(&ctx) != 0) {
+        LOG_info("Netplay: RA handshake failed, disconnecting\n");
+        snprintf(np.status_msg, sizeof(np.status_msg), "RA handshake failed");
+        return false;  // Will cause disconnect in caller
+    }
+
+    LOG_info("Netplay: RA handshake success - initializing rollback engine\n");
+    LOG_info("Netplay: RA server nick='%s', client_num=%u, start_frame=%u\n",
+             ctx.server_nick, ctx.client_num, ctx.start_frame);
+
+    // Initialize rollback engine
+    // The rollback engine takes ownership of the TCP connection
+    int result = Rollback_init(np.tcp_fd, ctx.client_num, ctx.start_frame,
+                               serialize_size_fn, serialize_fn, unserialize_fn,
+                               np.core_run_fn);
+
+    if (result != 0) {
+        LOG_info("Netplay: rollback init failed\n");
+        snprintf(np.status_msg, sizeof(np.status_msg), "Rollback init failed");
+        return false;
+    }
+
+    // Switch to rollback mode
+    np.rollback_mode = true;
+    np.protocol_detected = true;
+    np.needs_state_sync = false;
+    np.state = NETPLAY_STATE_PLAYING;
+
+    // The rollback engine now owns the TCP fd
+    // Don't let lockstep code close it
+    np.tcp_fd = -1;
+
+    snprintf(np.status_msg, sizeof(np.status_msg), "Rollback netplay active (RA host)");
+    LOG_info("Netplay: rollback mode active\n");
+    return true;
+}
+
+void Netplay_setCoreRunCallback(Netplay_CoreRunFn core_run_fn) {
+    np.core_run_fn = core_run_fn;
+}
+
+void Netplay_setCoreInfo(const char* core_name, const char* core_version, uint32_t content_crc) {
+    if (core_name) strncpy(np.ra_core_name, core_name, sizeof(np.ra_core_name) - 1);
+    if (core_version) strncpy(np.ra_core_version, core_version, sizeof(np.ra_core_version) - 1);
+    np.ra_content_crc = content_crc;
+}
+
+bool Netplay_isRollbackReplaying(void) {
+    return np.rollback_mode && Rollback_isReplaying();
+}
+
+bool Netplay_isRollbackMode(void) {
+    return np.rollback_mode;
 }

@@ -2,6 +2,13 @@
  * NextUI Netplay Module
  * Based on RetroArch netplay architecture
  * Implements frame-synchronized multiplayer over WiFi
+ *
+ * Supports two sync modes:
+ * - Lockstep: NextUI-to-NextUI connections (stall until both inputs ready)
+ * - Rollback: NextUI-to-RetroArch connections (speculative execution + rewind)
+ *
+ * Protocol is auto-detected: if the remote host speaks RA protocol (RANP magic),
+ * rollback mode is used. Otherwise, lockstep mode is used.
  */
 
 #ifndef NETPLAY_H
@@ -141,10 +148,24 @@ bool Netplay_isPaused(void);        // Check if paused
 typedef size_t (*Netplay_SerializeSizeFn)(void);
 typedef bool (*Netplay_SerializeFn)(void* data, size_t size);
 typedef bool (*Netplay_UnserializeFn)(const void* data, size_t size);
+typedef void (*Netplay_CoreRunFn)(void);
 
 int Netplay_update(uint16_t local_input,
                    Netplay_SerializeSizeFn serialize_size_fn,
                    Netplay_SerializeFn serialize_fn,
                    Netplay_UnserializeFn unserialize_fn);
+
+// Register core.run callback for rollback replay
+// Must be called before entering main loop if rollback support is desired
+void Netplay_setCoreRunCallback(Netplay_CoreRunFn core_run_fn);
+
+// Set core info for RA handshake (core name, version, content CRC)
+void Netplay_setCoreInfo(const char* core_name, const char* core_version, uint32_t content_crc);
+
+// Check if currently in rollback mode (for A/V suppression during replay)
+bool Netplay_isRollbackReplaying(void);
+
+// Check if we're using rollback mode (connected to RA host)
+bool Netplay_isRollbackMode(void);
 
 #endif /* NETPLAY_H */

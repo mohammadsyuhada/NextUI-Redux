@@ -22,7 +22,7 @@ SDL?=SDL
 TARGET = minarch
 PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 INCDIR = -I. -I./libretro-common/include/ -I../common/ -I../../$(PLATFORM)/platform/ -I../netplay/
-SOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../common/notification.c ../common/http.c ../../$(PLATFORM)/platform/platform.c ../netplay/netplay.c ../netplay/gbalink.c ../netplay/gblink.c ../netplay/network_common.c ../netplay/netplay_helper.c ../netplay/keyboard.c 
+SOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../common/notification.c ../common/http.c ../../$(PLATFORM)/platform/platform.c ../netplay/netplay.c ../netplay/gbalink.c ../netplay/gblink.c ../netplay/network_common.c ../netplay/netplay_helper.c ../netplay/keyboard.c ../netplay/ra_protocol.c ../netplay/netplay_rollback.c
 ifneq (,$(filter tg5040 tg5050,$(PLATFORM)))
 SOURCE += ../netplay/wifi_direct.c
 CFLAGS += -DHAS_WIFIMG

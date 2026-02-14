@@ -5968,6 +5968,9 @@ static void video_refresh_callback(const void* data, unsigned width, unsigned he
 	// This prevents game frames from overwriting UI screens during option updates
 	if (skip_video_output) return;
 
+	// Skip video output during rollback replay (re-running past frames for correction)
+	if (Netplay_isRollbackReplaying()) return;
+
 	// Allocate RGBA buffer if needed
 	if (!rgbaData || rgbaDataSize != width * height) {
 		if (rgbaData) free(rgbaData);
@@ -9176,6 +9179,14 @@ int main(int argc , char* argv[]) {
 	if (core.serialize_size) Rewind_on_state_change();
 	// release config when all is loaded
 	Config_free();
+
+	// Register core callbacks for rollback netplay (RA compatibility)
+	if (core.run) {
+		Netplay_setCoreRunCallback(core.run);
+	}
+	if (core.name[0] || core.version[0]) {
+		Netplay_setCoreInfo(core.name, core.version, 0);
+	}
 
 	LOG_info("total startup time %ims\n\n",SDL_GetTicks());
 	while (!quit) {
