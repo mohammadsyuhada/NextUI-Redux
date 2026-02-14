@@ -27,6 +27,15 @@
 #define RA_PLATFORM_MAGIC      0x4E585549  // "NXUI" - NextUI platform identifier
 #define RA_IMPL_MAGIC          0x4E585242  // "NXRB" - NextUI rollback impl
 
+// LAN Discovery magic values (from RetroArch netplay_frontend.c)
+#define RA_DISCOVERY_QUERY_MAGIC    0x52414E51  // "RANQ" - discovery query
+#define RA_DISCOVERY_RESPONSE_MAGIC 0x52414E53  // "RANS" - discovery response
+#define RA_DISCOVERY_PORT           55435       // Same as default netplay port
+
+// String lengths for discovery ad_packet (match RA defines)
+#define RA_HOST_STR_LEN      32
+#define RA_HOST_LONGSTR_LEN  256
+
 // Protocol version range we support
 #define RA_PROTOCOL_VERSION_MIN  6
 #define RA_PROTOCOL_VERSION_MAX  6
@@ -228,5 +237,53 @@ bool RA_sendCRC(int fd, uint32_t frame_num, uint32_t crc);
  * @return true on success
  */
 bool RA_drainBytes(int fd, uint32_t remaining);
+
+//////////////////////////////////////////////////////////////////////////////
+// LAN Discovery
+//////////////////////////////////////////////////////////////////////////////
+
+// RetroArch LAN discovery ad_packet (wire format, matches RA's struct ad_packet)
+typedef struct __attribute__((packed)) {
+    uint32_t header;                              // RA_DISCOVERY_QUERY_MAGIC or RA_DISCOVERY_RESPONSE_MAGIC
+    int32_t  content_crc;
+    int32_t  port;
+    uint32_t has_password;
+    char     nick[RA_NICK_LEN];
+    char     frontend[RA_HOST_STR_LEN];
+    char     core[RA_HOST_STR_LEN];
+    char     core_version[RA_HOST_STR_LEN];
+    char     retroarch_version[RA_HOST_STR_LEN];
+    char     content[RA_HOST_LONGSTR_LEN];
+    char     subsystem_name[RA_HOST_LONGSTR_LEN];
+} RA_DiscoveryPacket;
+
+// Parsed info from an RA discovery response
+typedef struct {
+    char     host_ip[16];
+    uint16_t port;
+    uint32_t content_crc;
+    char     nick[RA_NICK_LEN];
+    char     core[RA_HOST_STR_LEN];
+    char     core_version[RA_HOST_STR_LEN];
+    char     content[RA_HOST_LONGSTR_LEN];
+} RA_DiscoveredHost;
+
+/**
+ * Send RA LAN discovery query broadcast.
+ * @param udp_fd  UDP socket with SO_BROADCAST enabled
+ * @return true on success
+ */
+bool RA_sendDiscoveryQuery(int udp_fd);
+
+/**
+ * Receive and parse RA LAN discovery responses.
+ * @param udp_fd       UDP socket to receive on
+ * @param hosts        Array to store discovered hosts
+ * @param current_count  Pointer to current count (updated in place)
+ * @param max_hosts    Maximum hosts to store
+ * @return Updated host count
+ */
+int RA_receiveDiscoveryResponses(int udp_fd, RA_DiscoveredHost* hosts,
+                                  int* current_count, int max_hosts);
 
 #endif /* RA_PROTOCOL_H */

@@ -311,3 +311,81 @@ int RA_clientHandshake(RA_HandshakeCtx* ctx) {
 
     return 0;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// LAN Discovery
+//////////////////////////////////////////////////////////////////////////////
+
+bool RA_sendDiscoveryQuery(int udp_fd) {
+    if (udp_fd < 0) return false;
+
+    // RA discovery query is just the 4-byte magic header
+    uint32_t query = htonl(RA_DISCOVERY_QUERY_MAGIC);
+
+    struct sockaddr_in bcast = {0};
+    bcast.sin_family = AF_INET;
+    bcast.sin_addr.s_addr = INADDR_BROADCAST;
+    bcast.sin_port = htons(RA_DISCOVERY_PORT);
+
+    ssize_t sent = sendto(udp_fd, &query, sizeof(query), 0,
+                          (struct sockaddr*)&bcast, sizeof(bcast));
+    return (sent == sizeof(query));
+}
+
+int RA_receiveDiscoveryResponses(int udp_fd, RA_DiscoveredHost* hosts,
+                                  int* current_count, int max_hosts) {
+    if (udp_fd < 0 || !hosts || !current_count) return 0;
+
+    RA_DiscoveryPacket pkt;
+    struct sockaddr_in sender;
+    socklen_t sender_len = sizeof(sender);
+
+    while (recvfrom(udp_fd, &pkt, sizeof(pkt), MSG_DONTWAIT,
+                    (struct sockaddr*)&sender, &sender_len) >= (ssize_t)sizeof(pkt)) {
+
+        if (ntohl(pkt.header) != RA_DISCOVERY_RESPONSE_MAGIC) {
+            sender_len = sizeof(sender);
+            continue;
+        }
+
+        char ip[16];
+        inet_ntop(AF_INET, &sender.sin_addr, ip, sizeof(ip));
+
+        // Check for duplicates
+        bool found = false;
+        for (int i = 0; i < *current_count; i++) {
+            if (strcmp(hosts[i].host_ip, ip) == 0) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found && *current_count < max_hosts) {
+            RA_DiscoveredHost* h = &hosts[*current_count];
+            strncpy(h->host_ip, ip, sizeof(h->host_ip) - 1);
+            h->host_ip[sizeof(h->host_ip) - 1] = '\0';
+
+            // RA sends port in host byte order as int32
+            h->port = (uint16_t)ntohl(pkt.port);
+            h->content_crc = (uint32_t)ntohl(pkt.content_crc);
+
+            strncpy(h->nick, pkt.nick, RA_NICK_LEN - 1);
+            h->nick[RA_NICK_LEN - 1] = '\0';
+            strncpy(h->core, pkt.core, RA_HOST_STR_LEN - 1);
+            h->core[RA_HOST_STR_LEN - 1] = '\0';
+            strncpy(h->core_version, pkt.core_version, RA_HOST_STR_LEN - 1);
+            h->core_version[RA_HOST_STR_LEN - 1] = '\0';
+            strncpy(h->content, pkt.content, RA_HOST_LONGSTR_LEN - 1);
+            h->content[RA_HOST_LONGSTR_LEN - 1] = '\0';
+
+            LOG_info("RA discovery: found host %s:%u nick=%s core=%s game=%s\n",
+                     h->host_ip, h->port, h->nick, h->core, h->content);
+
+            (*current_count)++;
+        }
+
+        sender_len = sizeof(sender);
+    }
+
+    return *current_count;
+}

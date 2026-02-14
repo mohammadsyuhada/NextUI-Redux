@@ -14,6 +14,7 @@
 #include "netplay_lockstep.h"
 #include "netplay_helper.h"  // For stopHotspotAndRestoreWiFiAsync, netplay_connected_to_hotspot
 #include "network_common.h"
+#include "ra_protocol.h"     // For RA LAN discovery
 #include "defines.h"  // Must come before api.h for BTN_ID_COUNT
 #include "api.h"
 #ifdef HAS_WIFIMG
@@ -119,6 +120,12 @@ static struct {
     int num_hosts;
     bool discovery_active;
 
+    // RA LAN discovery (separate socket since RA uses port 55435, not 55436)
+    int ra_discovery_fd;
+    RA_DiscoveredHost ra_hosts[NETPLAY_MAX_HOSTS];
+    int ra_num_hosts;
+    struct timeval ra_last_query;
+
     // Threading
     pthread_t listen_thread;
     pthread_mutex_t mutex;
@@ -163,6 +170,7 @@ void Lockstep_init(void) {
     ls.tcp_fd = -1;
     ls.listen_fd = -1;
     ls.udp_fd = -1;
+    ls.ra_discovery_fd = -1;
     ls.port = NETPLAY_DEFAULT_PORT;
     pthread_mutex_init(&ls.mutex, NULL);
     NET_getLocalIP(ls.local_ip, sizeof(ls.local_ip));
@@ -496,7 +504,20 @@ int Lockstep_startDiscovery(void) {
         return -1;
     }
 
+    // Also create a socket for RA LAN discovery (port 55435)
+    // RA hosts listen on their netplay port for UDP discovery queries
+    ls.ra_discovery_fd = NET_createDiscoveryListenSocket(RA_DISCOVERY_PORT);
+    if (ls.ra_discovery_fd >= 0) {
+        // Enable broadcast so we can send queries
+        int broadcast = 1;
+        setsockopt(ls.ra_discovery_fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
+        // Send initial RA discovery query
+        RA_sendDiscoveryQuery(ls.ra_discovery_fd);
+        gettimeofday(&ls.ra_last_query, NULL);
+    }
+
     ls.num_hosts = 0;
+    ls.ra_num_hosts = 0;
     ls.discovery_active = true;
     return 0;
 }
@@ -509,18 +530,73 @@ void Lockstep_stopDiscovery(void) {
         ls.udp_fd = -1;
     }
 
+    if (ls.ra_discovery_fd >= 0) {
+        close(ls.ra_discovery_fd);
+        ls.ra_discovery_fd = -1;
+    }
+
+    ls.ra_num_hosts = 0;
     ls.discovery_active = false;
 }
 
 int Lockstep_getDiscoveredHosts(NetplayHostInfo* hosts, int max_hosts) {
     if (!ls.discovery_active || ls.udp_fd < 0) return 0;
 
+    // Poll for NextUI host broadcasts
     NET_receiveDiscoveryResponses(ls.udp_fd, NP_DISCOVERY_RESP,
                                    (NET_HostInfo*)ls.discovered_hosts, &ls.num_hosts,
                                    NETPLAY_MAX_HOSTS);
 
-    int count = (ls.num_hosts < max_hosts) ? ls.num_hosts : max_hosts;
-    memcpy(hosts, ls.discovered_hosts, count * sizeof(NetplayHostInfo));
+    // Poll for RA host responses and re-send queries periodically
+    if (ls.ra_discovery_fd >= 0) {
+        RA_receiveDiscoveryResponses(ls.ra_discovery_fd, ls.ra_hosts,
+                                      &ls.ra_num_hosts, NETPLAY_MAX_HOSTS);
+
+        // Re-send RA discovery query every 500ms (same as NextUI broadcast interval)
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        long elapsed_us = (now.tv_sec - ls.ra_last_query.tv_sec) * 1000000 +
+                          (now.tv_usec - ls.ra_last_query.tv_usec);
+        if (elapsed_us >= DISCOVERY_BROADCAST_INTERVAL_US) {
+            RA_sendDiscoveryQuery(ls.ra_discovery_fd);
+            ls.ra_last_query = now;
+        }
+    }
+
+    // Merge results: NextUI hosts first, then RA hosts
+    int count = 0;
+
+    // Copy NextUI hosts
+    for (int i = 0; i < ls.num_hosts && count < max_hosts; i++) {
+        hosts[count++] = ls.discovered_hosts[i];
+    }
+
+    // Merge RA hosts (skip duplicates by IP)
+    for (int i = 0; i < ls.ra_num_hosts && count < max_hosts; i++) {
+        bool duplicate = false;
+        for (int j = 0; j < count; j++) {
+            if (strcmp(hosts[j].host_ip, ls.ra_hosts[i].host_ip) == 0) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            NetplayHostInfo* h = &hosts[count];
+            // Use RA content name (or nick if content is empty) as game_name
+            if (ls.ra_hosts[i].content[0]) {
+                strncpy(h->game_name, ls.ra_hosts[i].content, NETPLAY_MAX_GAME_NAME - 1);
+            } else {
+                snprintf(h->game_name, NETPLAY_MAX_GAME_NAME, "RA: %s", ls.ra_hosts[i].nick);
+            }
+            h->game_name[NETPLAY_MAX_GAME_NAME - 1] = '\0';
+            strncpy(h->host_ip, ls.ra_hosts[i].host_ip, sizeof(h->host_ip) - 1);
+            h->host_ip[sizeof(h->host_ip) - 1] = '\0';
+            h->port = ls.ra_hosts[i].port;
+            h->game_crc = ls.ra_hosts[i].content_crc;
+            count++;
+        }
+    }
+
     return count;
 }
 
