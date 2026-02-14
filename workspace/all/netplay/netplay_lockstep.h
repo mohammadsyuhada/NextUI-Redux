@@ -80,6 +80,10 @@ int Lockstep_update(uint16_t local_input,
                     Netplay_SerializeFn serialize_fn,
                     Netplay_UnserializeFn unserialize_fn);
 
+// Set RA core info (for discovery response and server handshake)
+void Lockstep_setRACoreInfo(const char* core_name, const char* core_version,
+                            const char* content_name, uint32_t content_crc);
+
 // Access TCP fd (for protocol detection by facade)
 int Lockstep_getTcpFd(void);
 

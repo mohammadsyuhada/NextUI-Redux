@@ -36,6 +36,10 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 
+#ifndef LOG_info
+#define LOG_info(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
 // Protocol constants (internal)
 #define NP_PROTOCOL_MAGIC   0x4E585550  // "NXUP" - NextUI Protocol
 #define NP_DISCOVERY_QUERY  0x4E584451  // "NXDQ" - NextUI Discovery Query
@@ -120,11 +124,18 @@ static struct {
     int num_hosts;
     bool discovery_active;
 
-    // RA LAN discovery (separate socket since RA uses port 55435, not 55436)
+    // RA LAN discovery (client mode - separate socket since RA uses port 55435, not 55436)
     int ra_discovery_fd;
     RA_DiscoveredHost ra_hosts[NETPLAY_MAX_HOSTS];
     int ra_num_hosts;
     struct timeval ra_last_query;
+
+    // RA LAN discovery (host mode - respond to RANQ queries from RA clients)
+    int ra_listen_fd;
+    char ra_core_name[RA_HOST_STR_LEN];
+    char ra_core_version[RA_HOST_STR_LEN];
+    char ra_content_name[RA_HOST_LONGSTR_LEN];
+    uint32_t ra_content_crc;
 
     // Threading
     pthread_t listen_thread;
@@ -171,6 +182,7 @@ void Lockstep_init(void) {
     ls.listen_fd = -1;
     ls.udp_fd = -1;
     ls.ra_discovery_fd = -1;
+    ls.ra_listen_fd = -1;
     ls.port = NETPLAY_DEFAULT_PORT;
     pthread_mutex_init(&ls.mutex, NULL);
     NET_getLocalIP(ls.local_ip, sizeof(ls.local_ip));
@@ -268,6 +280,18 @@ int Lockstep_startHost(const char* game_name, uint32_t game_crc, const char* hot
     strncpy(ls.game_name, game_name, NETPLAY_MAX_GAME_NAME - 1);
     ls.game_crc = game_crc;
 
+    // Create RA discovery listener (port 55435) to respond to RANQ queries
+    // This lets RA clients discover us as a host on LAN
+    ls.ra_listen_fd = NET_createDiscoveryListenSocket(RA_DISCOVERY_PORT);
+    if (ls.ra_listen_fd < 0) {
+        // Non-fatal: RA clients won't discover us but can still connect via IP
+        LOG_info("Netplay: failed to create RA discovery socket on port %d (non-fatal)\n",
+                 RA_DISCOVERY_PORT);
+    } else {
+        LOG_info("Netplay: RA discovery socket created on port %d (fd=%d)\n",
+                 RA_DISCOVERY_PORT, ls.ra_listen_fd);
+    }
+
     ls.running = true;
     pthread_create(&ls.listen_thread, NULL, listen_thread_func, NULL);
 
@@ -318,6 +342,11 @@ static int Lockstep_stopHostInternal(bool skip_hotspot_cleanup) {
     Lockstep_stopBroadcast();
     Lockstep_disconnect();
 
+    if (ls.ra_listen_fd >= 0) {
+        close(ls.ra_listen_fd);
+        ls.ra_listen_fd = -1;
+    }
+
     if (ls.using_hotspot) {
         if (!skip_hotspot_cleanup) {
 #ifdef HAS_WIFIMG
@@ -362,40 +391,90 @@ static void* listen_thread_func(void* arg) {
         }
 
         if (is_waiting) {
+            // Wait for TCP connection or RA discovery query (RANQ)
             fd_set fds;
             FD_ZERO(&fds);
             FD_SET(ls.listen_fd, &fds);
+            int max_fd = ls.listen_fd;
+
+            if (ls.ra_listen_fd >= 0) {
+                FD_SET(ls.ra_listen_fd, &fds);
+                if (ls.ra_listen_fd > max_fd) max_fd = ls.ra_listen_fd;
+            }
 
             struct timeval tv = {.tv_sec = 0, .tv_usec = 100000};
-            if (select(ls.listen_fd + 1, &fds, NULL, NULL, &tv) > 0) {
-                struct sockaddr_in client_addr;
-                socklen_t len = sizeof(client_addr);
+            if (select(max_fd + 1, &fds, NULL, NULL, &tv) > 0) {
+                // Respond to RA discovery queries (RANQ) so RA clients can find us
+                if (ls.ra_listen_fd >= 0 && FD_ISSET(ls.ra_listen_fd, &fds)) {
+                    RA_DiscoveryPacket ranq;
+                    struct sockaddr_in sender;
+                    socklen_t sender_len = sizeof(sender);
 
-                int fd = accept(ls.listen_fd, (struct sockaddr*)&client_addr, &len);
-                if (fd >= 0) {
-                    pthread_mutex_lock(&ls.mutex);
+                    ssize_t recv_len;
+                    while ((recv_len = recvfrom(ls.ra_listen_fd, &ranq, sizeof(ranq), MSG_DONTWAIT,
+                                    (struct sockaddr*)&sender, &sender_len)) >= 4) {
+                        char sender_ip[16];
+                        inet_ntop(AF_INET, &sender.sin_addr, sender_ip, sizeof(sender_ip));
+                        LOG_info("Netplay: RA discovery received %zd bytes from %s:%d, header=0x%08x\n",
+                                 recv_len, sender_ip, ntohs(sender.sin_port), ntohl(ranq.header));
 
-                    if (ls.state != NETPLAY_STATE_WAITING) {
-                        close(fd);
-                        pthread_mutex_unlock(&ls.mutex);
-                        continue;
+                        if (ntohl(ranq.header) == RA_DISCOVERY_QUERY_MAGIC) {
+                            // Build RANS response
+                            RA_DiscoveryPacket resp;
+                            memset(&resp, 0, sizeof(resp));
+                            resp.header = htonl(RA_DISCOVERY_RESPONSE_MAGIC);
+                            resp.content_crc = htonl(ls.ra_content_crc);
+                            resp.port = htonl(ls.port);
+                            resp.has_password = htonl(0);
+                            strncpy(resp.nick, "NextUI", RA_NICK_LEN - 1);
+                            strncpy(resp.frontend, "NextUI", RA_HOST_STR_LEN - 1);
+                            strncpy(resp.core, ls.ra_core_name, RA_HOST_STR_LEN - 1);
+                            strncpy(resp.core_version, ls.ra_core_version, RA_HOST_STR_LEN - 1);
+                            strncpy(resp.retroarch_version, "1.19.1", RA_HOST_STR_LEN - 1);
+                            strncpy(resp.content, ls.ra_content_name, RA_HOST_LONGSTR_LEN - 1);
+
+                            ssize_t sent = sendto(ls.ra_listen_fd, &resp, sizeof(resp), 0,
+                                   (struct sockaddr*)&sender, sender_len);
+                            LOG_info("Netplay: RA discovery sent RANS (%zd bytes) to %s:%d "
+                                     "(core=%s, content=%s, port=%d, crc=0x%08x)\n",
+                                     sent, sender_ip, ntohs(sender.sin_port),
+                                     ls.ra_core_name, ls.ra_content_name, ls.port, ls.ra_content_crc);
+                        }
+                        sender_len = sizeof(sender);
                     }
+                }
 
-                    NET_configureTCPSocket(fd, NULL);
+                // Handle TCP connection
+                if (FD_ISSET(ls.listen_fd, &fds)) {
+                    struct sockaddr_in client_addr;
+                    socklen_t len = sizeof(client_addr);
 
-                    ls.tcp_fd = fd;
-                    inet_ntop(AF_INET, &client_addr.sin_addr, ls.remote_ip, sizeof(ls.remote_ip));
+                    int fd = accept(ls.listen_fd, (struct sockaddr*)&client_addr, &len);
+                    if (fd >= 0) {
+                        pthread_mutex_lock(&ls.mutex);
 
-                    ls.state = NETPLAY_STATE_SYNCING;
-                    ls.needs_state_sync = true;
-                    ls.self_frame = 0;
-                    ls.run_frame = 0;
-                    ls.other_frame = 0;
+                        if (ls.state != NETPLAY_STATE_WAITING) {
+                            close(fd);
+                            pthread_mutex_unlock(&ls.mutex);
+                            continue;
+                        }
 
-                    init_frame_buffer();
+                        NET_configureTCPSocket(fd, NULL);
 
-                    snprintf(ls.status_msg, sizeof(ls.status_msg), "Client connected: %s", ls.remote_ip);
-                    pthread_mutex_unlock(&ls.mutex);
+                        ls.tcp_fd = fd;
+                        inet_ntop(AF_INET, &client_addr.sin_addr, ls.remote_ip, sizeof(ls.remote_ip));
+
+                        ls.state = NETPLAY_STATE_SYNCING;
+                        ls.needs_state_sync = true;
+                        ls.self_frame = 0;
+                        ls.run_frame = 0;
+                        ls.other_frame = 0;
+
+                        init_frame_buffer();
+
+                        snprintf(ls.status_msg, sizeof(ls.status_msg), "Client connected: %s", ls.remote_ip);
+                        pthread_mutex_unlock(&ls.mutex);
+                    }
                 }
             }
         } else {
@@ -928,6 +1007,14 @@ const char* Lockstep_getLocalIP(void) {
 bool Lockstep_hasNetworkConnection(void) {
     NET_getLocalIP(ls.local_ip, sizeof(ls.local_ip));
     return NET_hasConnection();
+}
+
+void Lockstep_setRACoreInfo(const char* core_name, const char* core_version,
+                            const char* content_name, uint32_t content_crc) {
+    if (core_name) strncpy(ls.ra_core_name, core_name, RA_HOST_STR_LEN - 1);
+    if (core_version) strncpy(ls.ra_core_version, core_version, RA_HOST_STR_LEN - 1);
+    if (content_name) strncpy(ls.ra_content_name, content_name, RA_HOST_LONGSTR_LEN - 1);
+    ls.ra_content_crc = content_crc;
 }
 
 int Lockstep_getTcpFd(void) {

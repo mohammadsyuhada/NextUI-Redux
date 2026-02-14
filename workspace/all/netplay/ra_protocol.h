@@ -41,7 +41,7 @@
 #define RA_PROTOCOL_VERSION_MAX  6
 #define RA_PROTOCOL_VERSION      6
 
-// Nickname max length
+// Nickname max length (matches RA's NETPLAY_NICK_LEN = 32)
 #define RA_NICK_LEN  32
 
 // Core name/version max length (for CMD_INFO)
@@ -157,6 +157,19 @@ typedef struct {
     char     server_nick[RA_NICK_LEN]; // Server's nickname
 } RA_HandshakeCtx;
 
+// Server-side handshake context (NextUI as RA host)
+typedef struct {
+    int      tcp_fd;
+    uint32_t negotiated_proto;
+    uint32_t client_num;          // Assigned to connecting client (always 1 for first)
+    uint32_t start_frame;         // Our frame at sync time
+    uint32_t content_crc;
+    char     nick[RA_NICK_LEN];           // Our nickname
+    char     core_name[RA_CORE_NAME_LEN];
+    char     core_version[RA_CORE_VERSION_LEN];
+    char     client_nick[RA_NICK_LEN];    // Client's nickname
+} RA_ServerHandshakeCtx;
+
 //////////////////////////////////////////////////////////////////////////////
 // Protocol Functions
 //////////////////////////////////////////////////////////////////////////////
@@ -176,6 +189,37 @@ typedef struct {
  * @return 0 on success, -1 on failure
  */
 int RA_clientHandshake(RA_HandshakeCtx* ctx);
+
+/**
+ * Perform the server-side handshake with an RA client.
+ * Must be called after TCP connection is accepted.
+ *
+ * Sequence:
+ *   1. Receive client connection header (24 bytes)
+ *   2. Send server connection header (24 bytes)
+ *   3. Receive CMD_NICK from client
+ *   4. Send CMD_NICK
+ *   5. Send CMD_INFO
+ *   6. Receive CMD_INFO from client
+ *   7. Send CMD_SYNC (frame state + device config)
+ *   8. Receive CMD_PLAY from client
+ *   9. Send CMD_MODE (player assignment confirmation)
+ *
+ * @param ctx  Server handshake context (tcp_fd, content_crc, nick, core_name, core_version, start_frame must be set)
+ * @return 0 on success, -1 on failure
+ */
+int RA_serverHandshake(RA_ServerHandshakeCtx* ctx);
+
+/**
+ * Send input for a frame in RA format (server mode).
+ * Sets the is_server bit (bit 31) in the client_num field.
+ * @param fd          TCP socket
+ * @param frame_num   Frame number
+ * @param client_num  Our client number (0 for server)
+ * @param input       RETRO_DEVICE_JOYPAD input state (16-bit)
+ * @return true on success
+ */
+bool RA_sendServerInput(int fd, uint32_t frame_num, uint32_t client_num, uint16_t input);
 
 /**
  * Send an RA command with optional payload.
@@ -228,6 +272,18 @@ bool RA_parseInput(const void* data, uint32_t size,
  * @return true on success
  */
 bool RA_sendCRC(int fd, uint32_t frame_num, uint32_t crc);
+
+/**
+ * Send a savestate to the RA client for state synchronization.
+ * Used after handshake to sync the client to the server's exact state.
+ * Payload format: uint32_t frame_num, uint32_t uncompressed_size, raw state data (no separate compressed_size field).
+ * @param fd          TCP socket
+ * @param frame_num   Frame number this state corresponds to
+ * @param state_data  Serialized state data
+ * @param state_size  Size of state data in bytes
+ * @return true on success
+ */
+bool RA_sendSavestate(int fd, uint32_t frame_num, const void* state_data, size_t state_size);
 
 /**
  * Drain and discard remaining payload bytes if we didn't read the full payload.

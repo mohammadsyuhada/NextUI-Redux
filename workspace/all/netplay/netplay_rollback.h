@@ -24,8 +24,10 @@
 #define ROLLBACK_BUFFER_MASK  (ROLLBACK_BUFFER_SIZE - 1)
 
 // How many frames we can be ahead of the last confirmed remote input
-// before we start worrying (RA typically allows ~10-15 frames ahead)
-#define ROLLBACK_MAX_AHEAD    10
+// before we stall. Must be less than ROLLBACK_BUFFER_SIZE to prevent
+// ring buffer overwrite. Set high to avoid deadlock after pause/resume
+// (RA client may take many frames to unstall and resume sending input).
+#define ROLLBACK_MAX_AHEAD    45
 
 // CRC check interval (every N frames). 0 = every frame.
 // Checking every frame is expensive; every 4 is a reasonable trade-off.
@@ -63,6 +65,7 @@ typedef struct {
     // Network
     int      tcp_fd;
     uint32_t client_num;     // Our client number from RA handshake
+    bool     is_server;      // true = we are the RA host, false = we are the client
 
     // Core callbacks
     Rollback_SerializeSizeFn serialize_size_fn;
@@ -85,9 +88,18 @@ typedef struct {
     // Replay state
     bool     replaying;      // true during replay (A/V should be suppressed)
 
+    // Server: send initial savestate on first update (deferred from handshake)
+    bool     force_send_savestate;
+
+    // Pause state: snapshot core state at pause start so we can replay on resume
+    void*    pause_state;        // Serialized core state at pause start (NULL when not paused)
+    uint32_t pause_start_frame;  // Frame number when pause began
+
     // Status
     bool     connected;
     bool     desync_detected;
+    bool     local_paused;
+    uint32_t resume_grace_frames; // Frames to skip max-ahead check after resume
     char     status_msg[128];
 
     // Thread safety
@@ -102,9 +114,10 @@ typedef struct {
  * Initialize the rollback engine.
  * Call after RA handshake completes.
  *
- * @param tcp_fd         Connected TCP socket to RA host
- * @param client_num     Our client number from CMD_SYNC
- * @param start_frame    Server's frame count from CMD_SYNC
+ * @param tcp_fd         Connected TCP socket to RA host/client
+ * @param client_num     Our client number (0 for server, assigned num for client)
+ * @param start_frame    Frame count at sync time
+ * @param is_server      true if we are the RA host, false if client
  * @param serialize_size Core's retro_serialize_size
  * @param serialize      Core's retro_serialize
  * @param unserialize    Core's retro_unserialize
@@ -112,6 +125,7 @@ typedef struct {
  * @return 0 on success, -1 on failure (e.g., out of memory)
  */
 int Rollback_init(int tcp_fd, uint32_t client_num, uint32_t start_frame,
+                  bool is_server,
                   Rollback_SerializeSizeFn serialize_size,
                   Rollback_SerializeFn serialize,
                   Rollback_UnserializeFn unserialize,
@@ -172,6 +186,11 @@ bool Rollback_isActive(void);
 bool Rollback_isConnected(void);
 
 /**
+ * Check if the rollback engine is running in server mode.
+ */
+bool Rollback_isServer(void);
+
+/**
  * Get the current status message.
  */
 const char* Rollback_getStatusMessage(void);
@@ -181,6 +200,8 @@ const char* Rollback_getStatusMessage(void);
  */
 void Rollback_pause(void);
 void Rollback_resume(void);
+bool Rollback_isPaused(void);
+void Rollback_pollWhilePaused(void);
 
 /**
  * Disconnect from RA host.

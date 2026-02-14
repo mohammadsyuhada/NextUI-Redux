@@ -12,6 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netinet/in.h>
@@ -191,8 +192,9 @@ static uint32_t process_incoming(void) {
                 break;
             }
 
-            // We only care about the host's input (player 0 / server input)
-            // Our own input echoed back can be ignored
+            // Ignore our own input echoed back.
+            // When client: our client_num != 0, remote (host) sends as 0
+            // When server: our client_num == 0, remote (client) sends as 1
             if (player_num == rb.client_num) break;
 
             RollbackFrameSlot* slot = get_slot(frame_num);
@@ -246,7 +248,8 @@ static uint32_t process_incoming(void) {
 
         case RA_CMD_LOAD_SAVESTATE: {
             // Server is sending us a savestate for desync recovery.
-            // Payload: uint32_t frame_num + uint32_t state_size + state_data
+            // RA wire format: frame_num(4) + uncompressed_size(4) + data(cmd_size-8)
+            // For nil compression: data = raw state bytes
             // Savestate can be very large (100KB+), so we receive it into a
             // dynamically allocated buffer, not the stack.
             if (hdr.size < 8) {
@@ -254,7 +257,7 @@ static uint32_t process_incoming(void) {
                 break;
             }
 
-            // Read frame_num + state_size header (8 bytes)
+            // Read frame_num + uncompressed_size header (8 bytes)
             uint8_t ss_hdr[8];
             if (!recv_exact_nb(rb.tcp_fd, ss_hdr, 8)) break;
             uint32_t remaining_payload = hdr.size - 8;
@@ -321,8 +324,21 @@ static uint32_t process_incoming(void) {
             break;
         }
 
+        case RA_CMD_REQUEST_SAVESTATE: {
+            // RA client requests savestate for desync recovery.
+            // For now, ignore this — sending our core state crashes RA because
+            // different snes9x versions produce incompatible savestate formats,
+            // and our nil-compression path may not match RA's decompressor.
+            // Both sides start from the same ROM at frame 0, so initial sync
+            // is not needed. RA will continue without the savestate.
+            drain_bytes(rb.tcp_fd, hdr.size);
+            LOG_info("Rollback: client requested savestate (ignored - not supported yet)\n");
+            break;
+        }
+
         default:
             // Unknown command - drain payload and ignore
+            LOG_info("Rollback: unknown cmd=0x%04x size=%u\n", hdr.cmd, hdr.size);
             drain_bytes(rb.tcp_fd, hdr.size);
             break;
         }
@@ -376,6 +392,7 @@ static void do_rollback(uint32_t from_frame, uint32_t to_frame) {
 //////////////////////////////////////////////////////////////////////////////
 
 int Rollback_init(int tcp_fd, uint32_t client_num, uint32_t start_frame,
+                  bool is_server,
                   Rollback_SerializeSizeFn serialize_size,
                   Rollback_SerializeFn serialize,
                   Rollback_UnserializeFn unserialize,
@@ -389,6 +406,7 @@ int Rollback_init(int tcp_fd, uint32_t client_num, uint32_t start_frame,
     // that the caller (lockstep) still owns.
     rb.tcp_fd = -1;
     rb.client_num = client_num;
+    rb.is_server = is_server;
     rb.start_frame = start_frame;
     rb.self_frame = start_frame;
     rb.read_frame = start_frame;
@@ -429,6 +447,10 @@ int Rollback_init(int tcp_fd, uint32_t client_num, uint32_t start_frame,
     }
 
     // Now take ownership of the TCP fd (all allocations succeeded)
+    // Set non-blocking mode — the accepted socket from listen thread is
+    // blocking by default, but our recv loop needs non-blocking I/O.
+    int flags = fcntl(tcp_fd, F_GETFL, 0);
+    if (flags >= 0) fcntl(tcp_fd, F_SETFL, flags | O_NONBLOCK);
     rb.tcp_fd = tcp_fd;
 
     // Save initial state
@@ -436,9 +458,11 @@ int Rollback_init(int tcp_fd, uint32_t client_num, uint32_t start_frame,
 
     rb.active = true;
     rb.connected = true;
+    rb.force_send_savestate = false;  // Don't send initial savestate — RA starts from same ROM state
     snprintf(rb.status_msg, sizeof(rb.status_msg), "Rollback active");
 
-    LOG_info("Rollback: initialized (client=%u, start_frame=%u)\n", client_num, start_frame);
+    LOG_info("Rollback: initialized (%s, client=%u, start_frame=%u)\n",
+             is_server ? "server" : "client", client_num, start_frame);
     return 0;
 }
 
@@ -452,6 +476,11 @@ void Rollback_quit(void) {
         RA_sendCmd(rb.tcp_fd, RA_CMD_DISCONNECT, NULL, 0);
         close(rb.tcp_fd);
         rb.tcp_fd = -1;
+    }
+
+    if (rb.pause_state) {
+        free(rb.pause_state);
+        rb.pause_state = NULL;
     }
 
     if (rb.state_buffer) {
@@ -468,25 +497,94 @@ void Rollback_quit(void) {
 }
 
 int Rollback_update(uint16_t local_input) {
-    if (!rb.active || !rb.connected || rb.tcp_fd < 0) return 0;
+    if (!rb.active || !rb.connected || rb.tcp_fd < 0) {
+        LOG_info("Rollback_update: early exit (active=%d connected=%d fd=%d)\n",
+                 rb.active, rb.connected, rb.tcp_fd);
+        return 0;
+    }
 
     pthread_mutex_lock(&rb.mutex);
+
+    //
+    // 0a. Server: send initial savestate to sync RA client to our game state.
+    //     Deferred from handshake to here because RA hasn't finished its
+    //     post-handshake initialization (buffer allocation) during the handshake
+    //     itself. RA's own server does this via force_send_savestate on the
+    //     first frame loop iteration.
+    //
+    if (rb.force_send_savestate) {
+        rb.force_send_savestate = false;
+
+        // Check if connection is still alive before sending large savestate
+        int sock_err = 0;
+        socklen_t sock_err_len = sizeof(sock_err);
+        getsockopt(rb.tcp_fd, SOL_SOCKET, SO_ERROR, &sock_err, &sock_err_len);
+        if (sock_err != 0) {
+            LOG_info("Rollback: socket error %d before savestate send, skipping\n", sock_err);
+        } else {
+            size_t ss_size = rb.serialize_size_fn();
+            if (ss_size > 0) {
+                void* ss_data = malloc(ss_size);
+                if (ss_data) {
+                    if (rb.serialize_fn(ss_data, ss_size)) {
+                        LOG_info("Rollback: sending initial savestate (%zu bytes, frame %u)\n",
+                                 ss_size, rb.self_frame);
+                        if (!RA_sendSavestate(rb.tcp_fd, rb.self_frame, ss_data, ss_size)) {
+                            LOG_info("Rollback: savestate send failed, disconnecting\n");
+                            rb.connected = false;
+                        }
+                    } else {
+                        LOG_info("Rollback: failed to serialize initial savestate\n");
+                    }
+                    free(ss_data);
+                }
+            }
+        }
+    }
 
     //
     // 0. Enforce max-ahead limit: don't let the client run more than
     //    ROLLBACK_MAX_AHEAD frames past the last confirmed remote input.
     //    This prevents ring buffer wraparound from overwriting unconfirmed slots.
     //    If we're too far ahead, poll for incoming data before continuing.
+    //    After resume, a grace period skips this check to prevent deadlock.
     //
-    if (rb.self_frame > rb.read_frame + ROLLBACK_MAX_AHEAD) {
-        // Try to receive more remote inputs before giving up
-        process_incoming();
-        if (!rb.connected) {
-            pthread_mutex_unlock(&rb.mutex);
-            return 0;
+    if (rb.resume_grace_frames > 0) {
+        rb.resume_grace_frames--;
+        if (rb.resume_grace_frames % 10 == 0) {
+            LOG_info("Rollback: grace=%u self=%u read=%u\n",
+                     rb.resume_grace_frames, rb.self_frame, rb.read_frame);
         }
-        // If still too far ahead after draining, skip this frame (stall)
+    }
+    if (rb.resume_grace_frames == 0 &&
+        rb.self_frame > rb.read_frame + ROLLBACK_MAX_AHEAD) {
+        // Try to receive more remote inputs, waiting up to 16ms (one frame)
+        // to avoid busy-spinning when the remote side is just slightly behind.
+        for (int wait_i = 0; wait_i < 4; wait_i++) {
+            process_incoming();
+            if (!rb.connected) {
+                LOG_info("Rollback: disconnected during max-ahead poll\n");
+                pthread_mutex_unlock(&rb.mutex);
+                return 0;
+            }
+            if (rb.self_frame <= rb.read_frame + ROLLBACK_MAX_AHEAD) break;
+            // Brief wait (4ms) for more data before retrying
+            if (wait_i < 3) {
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(rb.tcp_fd, &fds);
+                struct timeval tv = {0, 4000};  // 4ms
+                select(rb.tcp_fd + 1, &fds, NULL, NULL, &tv);
+            }
+        }
+        // If still too far ahead after waiting, skip this frame (stall)
         if (rb.self_frame > rb.read_frame + ROLLBACK_MAX_AHEAD) {
+            static uint32_t stall_log_count = 0;
+            if (stall_log_count++ < 10) {
+                LOG_info("Rollback: STALL self=%u read=%u ahead=%u\n",
+                         rb.self_frame, rb.read_frame,
+                         rb.self_frame - rb.read_frame);
+            }
             pthread_mutex_unlock(&rb.mutex);
             return 0;
         }
@@ -514,9 +612,13 @@ int Rollback_update(uint16_t local_input) {
     save_state(rb.self_frame);
 
     //
-    // 3. Send our input to the RA host
+    // 3. Send our input to the remote peer
     //
-    RA_sendInput(rb.tcp_fd, rb.self_frame, rb.client_num, local_input);
+    if (rb.is_server) {
+        RA_sendServerInput(rb.tcp_fd, rb.self_frame, rb.client_num, local_input);
+    } else {
+        RA_sendInput(rb.tcp_fd, rb.self_frame, rb.client_num, local_input);
+    }
 
     //
     // 4. Process incoming data from the RA host
@@ -537,17 +639,22 @@ int Rollback_update(uint16_t local_input) {
     }
 
     //
-    // 6. Compute local CRC for desync detection (but don't send to server)
+    // 6. CRC for desync detection
     //
     // In RA protocol, only the server sends CMD_CRC. Clients compute CRC
-    // locally and compare when they receive the server's CRC. Sending
-    // CMD_CRC to the server is a protocol violation that can crash RA.
+    // locally and compare when they receive the server's CRC.
     //
     if (ROLLBACK_CRC_INTERVAL == 0 ||
         (rb.self_frame % ROLLBACK_CRC_INTERVAL) == 0) {
         uint32_t idx = rb.self_frame & ROLLBACK_BUFFER_MASK;
         if (rb.state_buffer[idx] && get_slot(rb.self_frame)->state_saved) {
-            get_slot(rb.self_frame)->crc = compute_crc32(rb.state_buffer[idx], rb.state_size);
+            uint32_t crc = compute_crc32(rb.state_buffer[idx], rb.state_size);
+            get_slot(rb.self_frame)->crc = crc;
+
+            // Server sends CRC to client for verification
+            if (rb.is_server) {
+                RA_sendCRC(rb.tcp_fd, rb.self_frame, crc);
+            }
         }
     }
 
@@ -580,13 +687,22 @@ uint16_t Rollback_getInput(unsigned port) {
 
     RollbackFrameSlot* slot = get_slot(frame);
 
-    // Port 0 = host (player 1), Port 1 = us (client, player 2)
-    // In RA's model, port mapping depends on client_num.
-    // For a 2-player game: host = port 0, first client = port 1
-    if (port == 0) {
-        return slot->remote_input;   // Host's input
+    // Port mapping depends on whether we're server or client.
+    // Port 0 = player 1 (always host), Port 1 = player 2 (always client)
+    if (rb.is_server) {
+        // We are the host: port 0 = our local input, port 1 = remote (client) input
+        if (port == 0) {
+            return slot->local_input;
+        } else {
+            return slot->remote_input;
+        }
     } else {
-        return slot->local_input;    // Our input
+        // We are the client: port 0 = remote (host) input, port 1 = our local input
+        if (port == 0) {
+            return slot->remote_input;
+        } else {
+            return slot->local_input;
+        }
     }
 }
 
@@ -602,20 +718,137 @@ bool Rollback_isConnected(void) {
     return rb.active && rb.connected && rb.tcp_fd >= 0;
 }
 
+bool Rollback_isServer(void) {
+    return rb.active && rb.is_server;
+}
+
 const char* Rollback_getStatusMessage(void) {
     return rb.status_msg;
 }
 
 void Rollback_pause(void) {
     if (!rb.active || rb.tcp_fd < 0) return;
-    RA_sendCmd(rb.tcp_fd, RA_CMD_PAUSE, NULL, 0);
+    LOG_info("Rollback_pause: self=%u read=%u connected=%d\n",
+             rb.self_frame, rb.read_frame, rb.connected);
+    rb.local_paused = true;
+
+    // Save core state snapshot so we can replay on resume.
+    // During pause, we send keepalive CMD_INPUT (0 buttons) to prevent RA's
+    // stall timeout, but the core doesn't run. On resume, we restore this
+    // snapshot and replay all accumulated frames to re-sync with RA.
+    rb.pause_start_frame = rb.self_frame;
+    if (rb.pause_state) { free(rb.pause_state); rb.pause_state = NULL; }
+    rb.pause_state = malloc(rb.state_size);
+    if (rb.pause_state) {
+        if (!rb.serialize_fn(rb.pause_state, rb.state_size)) {
+            LOG_info("Rollback: WARNING - failed to save pause state\n");
+            free(rb.pause_state);
+            rb.pause_state = NULL;
+        }
+    }
+
+    // NOTE: We intentionally do NOT send CMD_PAUSE to RA.
+    // RA's remote_unpaused() has a bug where operator precedence causes
+    // remote_paused to be re-set to true after CMD_RESUME, making resume
+    // impossible. Instead, we send keepalive CMD_INPUT during pollWhilePaused.
     snprintf(rb.status_msg, sizeof(rb.status_msg), "Paused");
 }
 
 void Rollback_resume(void) {
     if (!rb.active || rb.tcp_fd < 0) return;
-    RA_sendCmd(rb.tcp_fd, RA_CMD_RESUME, NULL, 0);
+
+    // Drain any remaining RA input that arrived during the pause
+    process_incoming();
+
+    rb.local_paused = false;
+
+    uint32_t pause_frames = rb.self_frame - rb.pause_start_frame;
+    LOG_info("Rollback: resumed self=%u read=%u pause_start=%u pause_frames=%u\n",
+             rb.self_frame, rb.read_frame, rb.pause_start_frame, pause_frames);
+
+    // Replay: restore core state from pause snapshot and re-run all frames
+    // that RA ran during the pause. During pause we sent CMD_INPUT(0) to keep
+    // RA alive, and RA sent us its real inputs. Now we run our core through
+    // those same frames so both sides converge on the same state.
+    if (rb.pause_state && pause_frames > 0) {
+        // Restore core to the exact state at pause start
+        if (!rb.unserialize_fn(rb.pause_state, rb.state_size)) {
+            LOG_info("Rollback: WARNING - failed to restore pause state\n");
+        } else {
+            // Cap replay to ring buffer size (oldest frames beyond this are lost)
+            uint32_t replay_start = rb.pause_start_frame;
+            if (pause_frames > ROLLBACK_BUFFER_SIZE) {
+                LOG_info("Rollback: pause was %u frames, capping replay to %u\n",
+                         pause_frames, ROLLBACK_BUFFER_SIZE);
+                // We lost the oldest frames' remote input, skip them
+                // (small desync, but better than nothing)
+                replay_start = rb.self_frame - ROLLBACK_BUFFER_SIZE;
+            }
+
+            uint32_t replay_count = rb.self_frame - replay_start;
+            LOG_info("Rollback: replaying %u pause frames (%u -> %u)\n",
+                     replay_count, replay_start, rb.self_frame);
+
+            rb.replaying = true;
+            for (uint32_t f = replay_start; f < rb.self_frame; f++) {
+                replay_frame = f;
+                RollbackFrameSlot* slot = get_slot(f);
+                // local_input was set to 0 during pollWhilePaused
+                // remote_input was set by process_incoming() during pollWhilePaused
+                rb.core_run_fn();
+            }
+            rb.replaying = false;
+
+            LOG_info("Rollback: pause replay complete at frame %u\n", rb.self_frame);
+        }
+    } else if (!rb.pause_state && pause_frames > 0) {
+        LOG_info("Rollback: WARNING - no pause state, skipping replay (%u frames lost)\n",
+                 pause_frames);
+    }
+
+    // Clean up pause state
+    if (rb.pause_state) {
+        free(rb.pause_state);
+        rb.pause_state = NULL;
+    }
+
+    // Grace period: skip max-ahead stall to give RA time to unstall
+    rb.resume_grace_frames = 30;
+
     snprintf(rb.status_msg, sizeof(rb.status_msg), "Rollback active");
+}
+
+bool Rollback_isPaused(void) {
+    return rb.active && rb.local_paused;
+}
+
+void Rollback_pollWhilePaused(void) {
+    // During menu/pause, drain incoming commands and keep RA alive.
+    // Since we don't send CMD_PAUSE (RA remote_unpaused() bug workaround),
+    // RA will enter RUNNING_FAST stall when it runs ahead of our last
+    // sent frame. To prevent RA's ~5 second stall timeout from disconnecting,
+    // we keep sending CMD_INPUT with incrementing frame numbers (0 input).
+    // This advances connected_players_frame on RA's side, preventing stall.
+    // On resume, we restore pause snapshot and replay all frames.
+    if (!rb.active || rb.tcp_fd < 0 || !rb.connected) return;
+
+    process_incoming();
+
+    // Send a keep-alive CMD_INPUT every call to prevent RA stall timeout.
+    // Use 0 input (no buttons) since the host is in the menu.
+    if (rb.is_server) {
+        RA_sendServerInput(rb.tcp_fd, rb.self_frame, rb.client_num, 0);
+    } else {
+        RA_sendInput(rb.tcp_fd, rb.self_frame, rb.client_num, 0);
+    }
+
+    // Initialize slot and record 0 input (core doesn't run during pause).
+    // Don't save_state — core isn't running, state hasn't changed.
+    // On resume, we'll restore from pause_state and replay.
+    RollbackFrameSlot* slot = get_slot(rb.self_frame);
+    slot->local_input = 0;
+    slot->state_saved = false;
+    rb.self_frame++;
 }
 
 void Rollback_disconnect(void) {
