@@ -537,15 +537,17 @@ int Rollback_update(uint16_t local_input) {
     }
 
     //
-    // 6. Send CRC for frames at the configured interval
+    // 6. Compute local CRC for desync detection (but don't send to server)
+    //
+    // In RA protocol, only the server sends CMD_CRC. Clients compute CRC
+    // locally and compare when they receive the server's CRC. Sending
+    // CMD_CRC to the server is a protocol violation that can crash RA.
     //
     if (ROLLBACK_CRC_INTERVAL == 0 ||
         (rb.self_frame % ROLLBACK_CRC_INTERVAL) == 0) {
         uint32_t idx = rb.self_frame & ROLLBACK_BUFFER_MASK;
         if (rb.state_buffer[idx] && get_slot(rb.self_frame)->state_saved) {
-            uint32_t crc = compute_crc32(rb.state_buffer[idx], rb.state_size);
-            get_slot(rb.self_frame)->crc = crc;
-            RA_sendCRC(rb.tcp_fd, rb.self_frame, crc);
+            get_slot(rb.self_frame)->crc = compute_crc32(rb.state_buffer[idx], rb.state_size);
         }
     }
 

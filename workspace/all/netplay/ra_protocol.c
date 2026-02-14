@@ -333,69 +333,9 @@ int RA_clientHandshake(RA_HandshakeCtx* ctx) {
     LOG_info("RA handshake: start_frame=%u, client_num=%u\n",
              ctx->start_frame, ctx->client_num);
 
-    //
-    // Step 7: Send CMD_PLAY to request player mode
-    //
-    // After CMD_SYNC, we're a spectator. We must request play mode before
-    // we can send CMD_INPUT. Payload is 4 bytes: (reserved:31 | as_slave:1).
-    // Per the spec, "payload may be elided if zero."
-    //
-    uint32_t play_payload = htonl(0);  // Not slave
-    if (!RA_sendCmd(fd, RA_CMD_PLAY, &play_payload, sizeof(play_payload))) {
-        LOG_info("RA handshake: failed to send PLAY\n");
-        return -1;
-    }
-    LOG_info("RA handshake: sent CMD_PLAY, waiting for MODE...\n");
-
-    //
-    // Step 8: Wait for CMD_MODE confirming we're a player
-    //
-    // The server may send other commands (CMD_INPUT, CMD_NOINPUT, CMD_MODE
-    // for other clients) between our PLAY request and the MODE response.
-    // We loop and drain until we get a MODE with the "you" bit set.
-    //
-    bool got_mode = false;
-    for (int attempts = 0; attempts < 100; attempts++) {
-        uint8_t mode_buf[64];
-        if (!RA_recvCmd(fd, &hdr, mode_buf, sizeof(mode_buf), 10000)) {
-            LOG_info("RA handshake: timeout waiting for MODE\n");
-            return -1;
-        }
-
-        if (hdr.cmd == RA_CMD_MODE && hdr.size >= 8) {
-            uint32_t mode_frame = ntohl(((uint32_t*)mode_buf)[0]);
-            uint32_t mode_flags = ntohl(((uint32_t*)mode_buf)[1]);
-
-            // Flags layout: reserved:13 | slave:1 | playing:1 | you:1 | player:16
-            bool is_you    = (mode_flags >> 16) & 1;
-            bool is_playing = (mode_flags >> 17) & 1;
-            uint16_t player = mode_flags & 0xFFFF;
-
-            LOG_info("RA handshake: MODE frame=%u you=%d playing=%d player=%u\n",
-                     mode_frame, is_you, is_playing, player);
-
-            if (is_you && is_playing) {
-                ctx->client_num = player;
-                ctx->start_frame = mode_frame;
-                got_mode = true;
-                break;
-            }
-            if (is_you && !is_playing) {
-                LOG_info("RA handshake: server refused play request\n");
-                return -1;
-            }
-            // MODE for another client - continue waiting
-        }
-        // Drain other commands (CMD_INPUT, CMD_NOINPUT, etc.)
-    }
-
-    if (!got_mode) {
-        LOG_info("RA handshake: never received MODE confirmation\n");
-        return -1;
-    }
-
-    LOG_info("RA handshake: play mode granted (client=%u, frame=%u)\n",
-             ctx->client_num, ctx->start_frame);
+    // The server auto-assigns us as a player via CMD_SYNC (client_num).
+    // No CMD_PLAY/CMD_MODE exchange needed for direct connections.
+    // Input exchange starts immediately after SYNC.
 
     return 0;
 }
