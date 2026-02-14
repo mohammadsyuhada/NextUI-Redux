@@ -128,13 +128,12 @@ typedef struct __attribute__((packed)) {
 //     uint16_t reserved
 //     uint32_t devices[16]      - Device-to-player mapping
 
-// CMD_INPUT payload
-// For protocol version 6:
-//   uint32_t frame_num       - Frame this input is for
-//   uint32_t is_server_input - 1 if this is the server's own input
-//   uint32_t player_num      - Which player slot
-//   uint32_t input_size      - Number of uint32 words of input
-//   uint32_t input[]         - Input data (RETRO_DEVICE_JOYPAD = 1 word)
+// CMD_INPUT payload (protocol v6)
+//   uint32_t frame_num                              - Frame this input is for
+//   uint32_t (is_server << 31) | (player & 0x7FFF)  - Server flag + player number
+//   uint32_t controller_input                        - RETRO_DEVICE_JOYPAD bitmask
+//   uint32_t analog1                                 - Analog stick 1 (optional, 0 if joypad)
+//   uint32_t analog2                                 - Analog stick 2 (optional, 0 if joypad)
 
 // CMD_CRC payload
 typedef struct __attribute__((packed)) {

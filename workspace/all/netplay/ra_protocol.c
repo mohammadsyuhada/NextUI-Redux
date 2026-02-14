@@ -143,35 +143,39 @@ bool RA_drainBytes(int fd, uint32_t remaining) {
 }
 
 bool RA_sendInput(int fd, uint32_t frame_num, uint32_t client_num, uint16_t input) {
-    // RA protocol v6 CMD_INPUT payload:
+    // RA protocol CMD_INPUT payload (protocol v6):
     //   uint32_t frame_num
-    //   uint32_t is_server_input (0 for client)
-    //   uint32_t player_num
-    //   uint32_t input_size (number of uint32 words, 1 for JOYPAD)
-    //   uint32_t input_data
+    //   uint32_t (is_server << 31) | (client_num & 0x7FFFFFFF)
+    //   uint32_t controller_input (RETRO_DEVICE_JOYPAD bitmask)
+    //   uint32_t analog1 (0 for joypad-only)
+    //   uint32_t analog2 (0 for joypad-only)
     uint32_t payload[5];
     payload[0] = htonl(frame_num);
-    payload[1] = htonl(0);            // Not server input
-    payload[2] = htonl(client_num);
-    payload[3] = htonl(1);            // 1 word of input
-    payload[4] = htonl((uint32_t)input);
+    payload[1] = htonl(client_num & 0x7FFFFFFF);  // is_server = 0 for client
+    payload[2] = htonl((uint32_t)input);
+    payload[3] = htonl(0);  // No analog
+    payload[4] = htonl(0);  // No analog
 
     return RA_sendCmd(fd, RA_CMD_INPUT, payload, sizeof(payload));
 }
 
 bool RA_parseInput(const void* data, uint32_t size,
                    uint32_t* frame_out, uint32_t* player_out, uint16_t* input_out) {
-    if (size < 16) return false;  // Minimum: frame + is_server + player + input_size
+    // RA protocol CMD_INPUT payload (protocol v6):
+    //   uint32_t frame_num
+    //   uint32_t (is_server << 31) | (player & 0x7FFFFFFF)
+    //   uint32_t controller_input (RETRO_DEVICE_JOYPAD bitmask)
+    //   uint32_t analog1 (optional)
+    //   uint32_t analog2 (optional)
+    if (size < 12) return false;  // Minimum: frame(4) + server|player(4) + input(4)
 
     const uint32_t* p = (const uint32_t*)data;
-    *frame_out  = ntohl(p[0]);
-    // p[1] = is_server_input (we don't need this)
-    *player_out = ntohl(p[2]);
+    *frame_out = ntohl(p[0]);
 
-    uint32_t input_size = ntohl(p[3]);
-    if (input_size < 1 || size < 16 + input_size * 4) return false;
+    uint32_t server_player = ntohl(p[1]);
+    *player_out = server_player & 0x7FFFFFFF;  // Strip is_server bit
 
-    *input_out = (uint16_t)ntohl(p[4]);
+    *input_out = (uint16_t)ntohl(p[2]);  // Joypad state in low 16 bits
     return true;
 }
 
