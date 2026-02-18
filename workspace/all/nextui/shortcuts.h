@@ -4,14 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "defines.h"
-#include "utils.h"
+#include "types.h"
 
 #define MAX_SHORTCUTS 12
-
-// Forward declarations
-typedef struct Entry Entry;
-typedef struct Array Array;
 
 // Initialize shortcuts (call in Menu_init)
 void Shortcuts_init(void);

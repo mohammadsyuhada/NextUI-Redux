@@ -1,6 +1,5 @@
 #include "shortcuts.h"
-#include "defines.h"
-#include "utils.h"
+#include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,60 +11,6 @@ typedef struct Shortcut {
 	char* path;  // without SDCARD_PATH prefix
 	char* name;  // display name
 } Shortcut;
-
-typedef struct Array {
-	int count;
-	int capacity;
-	void** items;
-} Array;
-
-// Entry struct (must match nextui.c)
-struct Entry {
-	char* path;
-	char* name;
-	char* unique;
-	int type;
-	int alpha;
-};
-
-///////////////////////////////////////
-// Internal Array functions
-
-static Array* Array_new(void) {
-	Array* self = malloc(sizeof(Array));
-	self->count = 0;
-	self->capacity = 8;
-	self->items = malloc(sizeof(void*) * self->capacity);
-	return self;
-}
-
-static void Array_push(Array* self, void* item) {
-	if (self->count >= self->capacity) {
-		self->capacity *= 2;
-		self->items = realloc(self->items, sizeof(void*) * self->capacity);
-	}
-	self->items[self->count++] = item;
-}
-
-static void* Array_pop(Array* self) {
-	if (self->count == 0) return NULL;
-	return self->items[--self->count];
-}
-
-static void Array_remove(Array* self, void* item) {
-	if (self->count == 0 || item == NULL) return;
-	int i = 0;
-	while (self->items[i] != item) i++;
-	for (int j = i; j < self->count - 1; j++) {
-		self->items[j] = self->items[j + 1];
-	}
-	self->count--;
-}
-
-static void Array_free(Array* self) {
-	free(self->items);
-	free(self);
-}
 
 ///////////////////////////////////////
 // Shortcut functions
