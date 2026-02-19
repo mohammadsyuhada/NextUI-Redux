@@ -450,7 +450,7 @@ void trimSortingMeta(char** str) { // eg. `001) `
 
 ///////////////////////////////////////
 
-int exists(char* path) {
+bool exists(char* path) {
 	return access(path, F_OK) == 0;
 }
 void touch(char* path) {

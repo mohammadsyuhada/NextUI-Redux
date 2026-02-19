@@ -22,6 +22,7 @@
 #include "gameswitcher.h"
 #include "imgloader.h"
 #include "launcher.h"
+#include "pill.h"
 #include "quickmenu.h"
 #include "recents.h"
 #include "types.h"
@@ -408,15 +409,7 @@ int main(int argc, char* argv[]) {
 	if (blackBG)
 		SDL_FillRect(blackBG, NULL, SDL_MapRGBA(screen->format, 0, 0, 0, 255));
 
-	SDL_LockMutex(animMutex);
-	globalpill = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, screen->w,
-												SCALE1(PILL_SIZE), FIXED_DEPTH,
-												screen->format->format);
-	globalText = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, screen->w,
-												SCALE1(PILL_SIZE), FIXED_DEPTH,
-												screen->format->format);
-	static int globallpillW = 0;
-	SDL_UnlockMutex(animMutex);
+	Pill_init();
 
 	while (!quit) {
 		GFX_startFrame();
@@ -599,7 +592,6 @@ int main(int argc, char* argv[]) {
 					}
 				}
 
-				// list
 				if (total > 0) {
 					selected_row = top->selected - top->start;
 					previousY = previous_row * PILL_SIZE;
@@ -658,40 +650,12 @@ int main(int argc, char* argv[]) {
 						if (row_is_selected) {
 							is_scrolling =
 								list_show_entry_names &&
-								GFX_textShouldScroll(font.large, display_name,
-													 max_width - SCALE1(BUTTON_PADDING * 2),
-													 fontMutex);
-							GFX_resetScrollText();
+								Pill_shouldScroll(display_name, max_width);
+							Pill_resetScroll();
 							bool should_animate = previous_depth == stack->count;
-							SDL_LockMutex(animMutex);
-							if (globalpill) {
-								SDL_FreeSurface(globalpill);
-								globalpill = NULL;
-							}
-							globalpill = SDL_CreateRGBSurfaceWithFormat(
-								SDL_SWSURFACE, max_width, SCALE1(PILL_SIZE), FIXED_DEPTH,
-								screen->format->format);
-							GFX_blitPillDark(ASSET_WHITE_PILL, globalpill,
-											 &(SDL_Rect){0, 0, max_width, SCALE1(PILL_SIZE)});
-							globallpillW = max_width;
-							SDL_UnlockMutex(animMutex);
-							updatePillTextSurface(entry_name, max_width,
-												  uintToColour(THEME_COLOR5_255));
-							AnimTask* task = malloc(sizeof(AnimTask));
-							if (task) {
-								task->startX = SCALE1(BUTTON_MARGIN);
-								task->startY = SCALE1(previousY + PADDING);
-								task->targetX = SCALE1(BUTTON_MARGIN);
-								task->targetY = SCALE1(targetY + PADDING);
-								task->targetTextY = SCALE1(PADDING + targetY) + text_offset_y;
-								pilltargetTextY = screen->h;
-								task->move_w = max_width;
-								task->move_h = SCALE1(PILL_SIZE);
-								task->frames =
-									should_animate && CFG_getMenuAnimations() ? 3 : 1;
-								task->entry_name = strdup(notext ? " " : entry_name);
-								animPill(task);
-							}
+							Pill_update(entry_name, max_width,
+										previousY, targetY, text_offset_y,
+										should_animate, !notext);
 						}
 						SDL_Rect text_rect = {0, 0, max_width - SCALE1(BUTTON_PADDING * 2),
 											  text->h};
@@ -779,12 +743,8 @@ int main(int argc, char* argv[]) {
 				GFX_clearLayers(LAYER_TRANSITION);
 				GFX_clearLayers(LAYER_SCROLLTEXT);
 
-				SDL_LockMutex(animMutex);
-				if (list_show_entry_names && globalpill) {
-					GFX_drawOnLayer(globalpill, pillRect.x, pillRect.y, globallpillW,
-									globalpill->h, 1.0f, 0, LAYER_TRANSITION);
-				}
-				SDL_UnlockMutex(animMutex);
+				if (confirm_shortcut_action == SHORTCUT_NONE)
+					Pill_renderToLayer(list_show_entry_names);
 			}
 			if (!startgame) // dont flip if game gonna start
 				GFX_flip(screen);
@@ -793,28 +753,23 @@ int main(int argc, char* argv[]) {
 				SDL_FreeSurface(tmpOldScreen);
 
 			dirty = false;
-		} else if (getAnimationDraw() || folderbgchanged || thumbchanged ||
+		} else if (Pill_hasAnimationDraw() || folderbgchanged || thumbchanged ||
 				   is_scrolling) {
 			// honestly this whole thing is here only for the scrolling text, I set it
 			// now to run this at 30fps which is enough for scrolling text, should
 			// move this to seperate animation function eventually
-			static char cached_display_name[256] = "";
 			updateBackgroundLayer();
 			renderThumbnail(1);
-			SDL_LockMutex(animMutex);
-			if (getAnimationDraw()) {
-				GFX_clearLayers(LAYER_TRANSITION);
-				if (list_show_entry_names && globalpill)
-					GFX_drawOnLayer(globalpill, pillRect.x, pillRect.y, globallpillW,
-									globalpill->h, 1.0f, 0, LAYER_TRANSITION);
-				setAnimationDraw(0);
+			if (confirm_shortcut_action == SHORTCUT_NONE) {
+				Pill_renderAnimFrame(list_show_entry_names);
 			}
-			SDL_UnlockMutex(animMutex);
 			if (currentScreen != SCREEN_GAMESWITCHER &&
 				currentScreen != SCREEN_QUICKMENU) {
-				// Skip scrolling text when confirmation dialog is shown
-				if (is_scrolling && pillanimdone && currentAnimQueueSize < 1 &&
-					confirm_shortcut_action == SHORTCUT_NONE) {
+				// Skip pill text rendering when confirmation dialog is shown
+				if (confirm_shortcut_action != SHORTCUT_NONE) {
+					GFX_clearLayers(LAYER_TRANSITION);
+					GFX_clearLayers(LAYER_SCROLLTEXT);
+				} else if (is_scrolling && Pill_isAnimDone() && Pill_getAnimQueueSize() < 1) {
 					int ow = GFX_blitHardwareGroup(screen, show_setting);
 					Entry* entry = top->entries->items[top->selected];
 					trimSortingMeta(&entry->name);
@@ -831,39 +786,15 @@ int main(int argc, char* argv[]) {
 					if (top->selected == top->start && !had_thumb)
 						available_width -= ow;
 
-					SDL_Color text_color = uintToColour(THEME_COLOR5_255);
-
-					int text_width =
-						GFX_getTextWidth(font.large, entry_text, cached_display_name,
-										 available_width, SCALE1(BUTTON_PADDING * 2));
-					int max_width = MIN(available_width, text_width);
 					int text_offset_y =
 						(SCALE1(PILL_SIZE) - TTF_FontHeight(font.large) + 1) >> 1;
 
-					GFX_clearLayers(LAYER_SCROLLTEXT);
 					if (list_show_entry_names) {
-						GFX_scrollTextTexture(
-							font.large, entry_text, SCALE1(BUTTON_MARGIN + BUTTON_PADDING),
-							SCALE1(PADDING + previous_row * PILL_SIZE) + text_offset_y,
-							max_width - SCALE1(BUTTON_PADDING * 2), 0, text_color, 1,
-							fontMutex // Thread-safe font access
-						);
+						Pill_renderScrollText(entry_text, available_width,
+											  text_offset_y, previous_row);
 					}
 				} else {
-					GFX_clearLayers(LAYER_TRANSITION);
-					GFX_clearLayers(LAYER_SCROLLTEXT);
-					SDL_LockMutex(animMutex);
-					if (list_show_entry_names && globalpill) {
-						GFX_drawOnLayer(globalpill, pillRect.x, pillRect.y, globallpillW,
-										globalpill->h, 1.0f, 0, LAYER_TRANSITION);
-						if (globalText)
-							GFX_drawOnLayer(globalText,
-											SCALE1(BUTTON_MARGIN + BUTTON_PADDING),
-											pilltargetTextY, globalText->w, globalText->h,
-											1.0f, 0, LAYER_SCROLLTEXT);
-					}
-					SDL_UnlockMutex(animMutex);
-					PLAT_GPU_Flip();
+					Pill_renderFallback(list_show_entry_names);
 				}
 			} else {
 				SDL_Delay(16);
@@ -873,7 +804,6 @@ int main(int argc, char* argv[]) {
 			// want to draw only if needed
 			SDL_LockMutex(bgqueueMutex);
 			SDL_LockMutex(thumbqueueMutex);
-			SDL_LockMutex(animqueueMutex);
 			if (getNeedDraw()) {
 				PLAT_GPU_Flip();
 				setNeedDraw(0);
@@ -882,7 +812,6 @@ int main(int argc, char* argv[]) {
 				if (elapsed < 16)
 					SDL_Delay(16 - elapsed);
 			}
-			SDL_UnlockMutex(animqueueMutex);
 			SDL_UnlockMutex(thumbqueueMutex);
 			SDL_UnlockMutex(bgqueueMutex);
 		}
@@ -915,6 +844,9 @@ int main(int argc, char* argv[]) {
 	Menu_quit();
 	PWR_quit();
 	PAD_quit();
+
+	// Cleanup pill animation thread first (uses frameMutex/flipCond from imgloader)
+	Pill_quit();
 
 	// Cleanup worker threads and their synchronization primitives
 	cleanupImageLoaderPool();

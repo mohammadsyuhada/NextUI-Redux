@@ -5,9 +5,9 @@
 #include "api.h"
 #include "config.h"
 
-static int _simple_mode = 0;
+static bool _simple_mode = false;
 
-void Content_setSimpleMode(int mode) {
+void Content_setSimpleMode(bool mode) {
 	_simple_mode = mode;
 }
 
