@@ -141,8 +141,8 @@ void QuickMenu_render(int lastScreen, int show_setting, int ow,
 	char newBgPath[MAX_PATH];
 	char fallbackBgPath[MAX_PATH];
 	bool show_off =
-		(current->quickId == QUICK_WIFI && CFG_getWifi()) ||
-		(current->quickId == QUICK_BLUETOOTH && CFG_getBluetooth());
+		(current->quickId == QUICK_WIFI && !CFG_getWifi()) ||
+		(current->quickId == QUICK_BLUETOOTH && !CFG_getBluetooth());
 	snprintf(newBgPath, sizeof(newBgPath),
 			 SDCARD_PATH "/.media/quick_%s%s.png", current->name,
 			 show_off ? "_off" : "");
@@ -269,10 +269,10 @@ void QuickMenu_render(int lastScreen, int show_setting, int ow,
 			int asset = ASSET_WIFI;
 			switch (item->quickId) {
 			case QUICK_WIFI:
-				asset = CFG_getWifi() ? ASSET_WIFI_OFF : ASSET_WIFI;
+				asset = CFG_getWifi() ? ASSET_WIFI : ASSET_WIFI_OFF;
 				break;
 			case QUICK_BLUETOOTH:
-				asset = CFG_getBluetooth() ? ASSET_BLUETOOTH_OFF : ASSET_BLUETOOTH;
+				asset = CFG_getBluetooth() ? ASSET_BLUETOOTH : ASSET_BLUETOOTH_OFF;
 				break;
 			case QUICK_SLEEP:
 				asset = ASSET_SUSPEND;
