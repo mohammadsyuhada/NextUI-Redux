@@ -33,15 +33,19 @@ It is a deliberate divergence — feature-driven and structure-focused.
 
 Changes:
 
-- Refactored nextui.c from monolithic code to a smalle, focused components
+- Refactored nextui.c from monolithic code to a smaller, focused components
 - Various bug fixes and code optimizations across the refactored components
 - Added clang-format tooling and code style enforcement, also support for VSCode IDE
 - Reusable UI component that can be used by other tools for a consistent design
+- Fix wrong wifi/bluetooth state icon in quick menu
+- Added semi transparent progress overlay for all blocking actions
+- Redesign and convert the Settings app from C++ to C
 
 New Features:
+- Redesigned UI. It is now consistent throughout the system.
 - Game art fallback for games without save state in the game switcher
 - Shortcut in the main menu for quick access to the regularly used Tools/Games
-- Redesigned UI. It is now consistent throughout the system.
+- User can directly select a wifi network/bluetooth device to connect in quick menu
 
 Upcoming Features:
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)

@@ -199,17 +199,13 @@ void InitSettings(void) {
 		settings->mute = 0;
 	}
 	// printf("brightness: %i\nspeaker: %i \n", settings->brightness, settings->speaker);
-	system("amixer");
-
 	// make sure all these volume-influencing controls are set to defaults, we will set volume with 'DAC Volume'
 	if (GetAudioSink() == AUDIO_SINK_DEFAULT) {
-		system("amixer sset 'SPK' on");
-		system("amixer sset 'HPOUT' on");
-		system("amixer sset 'LINEOUTL' on");
-		system("amixer sset 'LINEOUTR' on");
-		system("amixer sset 'DACL DACR Swap' On");
-		//system("amixer sset 'HPOUT Gain' 7"); // resets itself on boot to 7, we dont necessarily need to modify
-		//system("amixer sset 'LINEOUT Gain' 19"); // resets itself on boot to 19, we dont necessarily need to modify
+		system("amixer sset 'SPK' on;"
+			   "amixer sset 'HPOUT' on;"
+			   "amixer sset 'LINEOUTL' on;"
+			   "amixer sset 'LINEOUTR' on;"
+			   "amixer sset 'DACL DACR Swap' On");
 	}
 
 	// This will implicitly update all other settings based on FN switch state

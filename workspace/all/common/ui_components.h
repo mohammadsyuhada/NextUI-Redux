@@ -19,4 +19,12 @@ int UI_renderButtonHintBar(SDL_Surface* dst, char** right_pairs, char** left_pai
 
 int UI_renderMenuBar(SDL_Surface* screen, const char* title, int show_setting);
 
+// Render a splash screen with a title and "Loading..." subtitle, then flip.
+// Call immediately after GFX_init() for instant visual feedback during app startup.
+void UI_showSplashScreen(SDL_Surface* screen, const char* title);
+
+// Render a full-screen semi-transparent overlay with title/subtitle text.
+// Used for blocking operations (e.g. WiFi/BT toggle) with a cancel hint.
+void UI_renderLoadingOverlay(SDL_Surface* dst, const char* title, const char* subtitle);
+
 #endif // UI_COMPONENTS_H

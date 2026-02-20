@@ -7,10 +7,58 @@
 #include "types.h"
 #include "ui_components.h"
 #include "ui_connect.h"
+#include "api.h"
 #include <msettings.h>
+#include <pthread.h>
 
 static Array* quick;		// EntryArray
 static Array* quickActions; // EntryArray
+
+// ============================================
+// WiFi/BT toggle with blocking overlay
+// ============================================
+
+struct toggle_ctx {
+	int enable;
+	volatile int done;
+	void (*fn)(bool);
+};
+
+static void* qm_toggle_thread(void* arg) {
+	struct toggle_ctx* ctx = arg;
+	ctx->fn(ctx->enable ? true : false);
+	ctx->done = 1;
+	return NULL;
+}
+
+static void qm_toggle_with_overlay(void (*fn)(bool), int enable, const char* title) {
+	struct toggle_ctx ctx = {.enable = enable, .done = 0, .fn = fn};
+
+	pthread_t t;
+	pthread_create(&t, NULL, qm_toggle_thread, &ctx);
+	pthread_detach(t);
+
+	// Snapshot current screen so the quick menu stays visible under the overlay
+	SDL_Surface* bg = SDL_CreateRGBSurface(0, screen->w, screen->h,
+										   screen->format->BitsPerPixel,
+										   screen->format->Rmask, screen->format->Gmask,
+										   screen->format->Bmask, screen->format->Amask);
+	if (bg)
+		SDL_BlitSurface(screen, NULL, bg, NULL);
+
+	while (!ctx.done) {
+		GFX_startFrame();
+		PAD_poll();
+
+		if (bg)
+			SDL_BlitSurface(bg, NULL, screen, NULL);
+		UI_renderLoadingOverlay(screen, title, "Please wait...");
+		GFX_flip(screen);
+	}
+
+	if (bg)
+		SDL_FreeSurface(bg);
+}
 
 typedef enum {
 	QM_ROW_ITEMS = 0,
@@ -67,30 +115,50 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 	} else if (PAD_justReleased(BTN_A)) {
 		Entry* selected =
 			qm_row == QM_ROW_ITEMS ? quick->items[qm_col] : quickActions->items[qm_col];
-		if (selected->type != ENTRY_DIP) {
-			result.screen = SCREEN_GAMELIST;
-			// prevent restoring list state, game list screen currently isnt our
-			// nav origin
-			top->selected = 0;
-			top->start = 0;
-			int qm_rc = MAIN_ROW_COUNT - 1;
-			top->end = top->start + qm_rc;
-			restore.depth = -1;
-			restore.relative = -1;
-			restore.selected = 0;
-			restore.start = 0;
-			restore.end = 0;
+
+		// WiFi/BT toggles: use blocking overlay instead of direct toggle
+		if (selected->type == ENTRY_DIP && selected->quickId == QUICK_WIFI) {
+			int enabling = !WIFI_enabled();
+			qm_toggle_with_overlay(WIFI_enable,
+								   enabling, enabling ? "Enabling WiFi..." : "Disabling WiFi...");
+			result.dirty = true;
+		} else if (selected->type == ENTRY_DIP && selected->quickId == QUICK_BLUETOOTH) {
+			int enabling = !BT_enabled();
+			qm_toggle_with_overlay(BT_enable,
+								   enabling, enabling ? "Enabling Bluetooth..." : "Disabling Bluetooth...");
+			result.dirty = true;
+		} else {
+			if (selected->type != ENTRY_DIP) {
+				result.screen = SCREEN_GAMELIST;
+				// prevent restoring list state, game list screen currently isnt our
+				// nav origin
+				top->selected = 0;
+				top->start = 0;
+				int qm_rc = MAIN_ROW_COUNT - 1;
+				top->end = top->start + qm_rc;
+				restore.depth = -1;
+				restore.relative = -1;
+				restore.selected = 0;
+				restore.start = 0;
+				restore.end = 0;
+			}
+			Entry_open(selected);
+			result.dirty = true;
 		}
-		Entry_open(selected);
-		result.dirty = true;
 	} else if (PAD_justPressed(BTN_X)) {
 		Entry* xselected =
 			qm_row == QM_ROW_TOGGLES ? quickActions->items[qm_col] : NULL;
 		if (xselected && xselected->quickId == QUICK_WIFI) {
+			if (!WIFI_enabled()) {
+				qm_toggle_with_overlay(WIFI_enable, 1, "Enabling WiFi...");
+			}
 			ConnectDialog_initWifi();
 			qm_connect_active = true;
 			result.dirty = true;
 		} else if (xselected && xselected->quickId == QUICK_BLUETOOTH) {
+			if (!BT_enabled()) {
+				qm_toggle_with_overlay(BT_enable, 1, "Enabling Bluetooth...");
+			}
 			ConnectDialog_initBluetooth();
 			qm_connect_active = true;
 			result.dirty = true;
