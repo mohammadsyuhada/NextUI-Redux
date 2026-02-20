@@ -39,7 +39,7 @@ Changes:
 - Reusable UI component that can be used by other tools for a consistent design
 - Fix wrong wifi/bluetooth state icon in quick menu
 - Added semi transparent progress overlay for all blocking actions
-- Redesign and convert the Settings app from C++ to C
+- Rewrite settings app in C with UI redesign 
 
 New Features:
 - Redesigned UI. It is now consistent throughout the system.
