@@ -460,13 +460,11 @@ void InitSettings(void) {
 		settings->mute = 0;
 	}
 	// printf("brightness: %i\nspeaker: %i \n", settings->brightness, settings->speaker);
-	system("amixer");
-
 	// make sure all these volume-influencing controls are set to defaults, we will set volume with 'digital volume'
 	if (GetAudioSink() == AUDIO_SINK_DEFAULT) {
-		system("amixer sset 'Headphone' 0");	  // 100%
-		system("amixer sset 'digital volume' 0"); // 100%
-		system("amixer sset 'DAC Swap' Off");	  // Fix L/R channels
+		system("amixer sset 'Headphone' 0;"
+			   "amixer sset 'digital volume' 0;"
+			   "amixer sset 'DAC Swap' Off");
 	}
 
 	// This will implicitly update all other settings based on FN switch state

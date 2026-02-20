@@ -57,5 +57,12 @@ char* UIKeyboard_open(const char* prompt) {
 	}
 
 	pclose(pipe);
+
+	// Flush stale SDL events accumulated while keyboard binary was running
+	SDL_Event e;
+	while (SDL_PollEvent(&e))
+		;
+	PAD_reset();
+
 	return result;
 }

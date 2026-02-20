@@ -81,7 +81,7 @@ docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-too
 docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-toolchain:latest /bin/bash -c 'source ~/.bashrc && cd /root/workspace/all/minarch && make PLATFORM=tg5040' && adb push workspace/all/minarch/build/tg5040/minarch.elf /mnt/SDCARD/.system/tg5040/bin/ && adb shell reboot
 
 # settings
-docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-toolchain:latest /bin/bash -c 'source ~/.bashrc && cd /root/workspace/all/settings && make PLATFORM=tg5040' && adb push workspace/all/settings/build/tg5040/settings.elf /mnt/SDCARD/.system/tg5040/bin/ && adb shell reboot
+docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-toolchain:latest /bin/bash -c 'source ~/.bashrc && cd /root/workspace/all/settings && make PLATFORM=tg5040' && adb push workspace/all/settings/build/tg5040/settings.elf /mnt/SDCARD/Tools/tg5040/Settings.pak/
 ```
 
 ## Component Locations

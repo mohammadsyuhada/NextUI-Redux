@@ -102,6 +102,8 @@ int UI_renderButtonHintBar(SDL_Surface* dst, char** right_pairs, char** left_pai
 		for (int i = 0; groups[g][i * 2] && count < 8; i++) {
 			char* button = groups[g][i * 2];
 			char* hint = groups[g][i * 2 + 1];
+			if (!hint)
+				break;
 			int w = GFX_getButtonWidth(hint, button);
 			hints[count++] = (struct Hint){hint, button, w};
 			total_w += SCALE1(BUTTON_MARGIN) + w;
@@ -123,6 +125,8 @@ int UI_renderButtonHintBar(SDL_Surface* dst, char** right_pairs, char** left_pai
 			SDL_FreeSurface(button_bar);
 		button_bar = SDL_CreateRGBSurface(SDL_SWSURFACE, dst->w, bar_h, 32,
 										  0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+		if (!button_bar)
+			return 0;
 		SDL_FillRect(button_bar, NULL, SDL_MapRGBA(button_bar->format, 0, 0, 0, 178));
 		SDL_SetSurfaceBlendMode(button_bar, SDL_BLENDMODE_BLEND);
 	}
@@ -139,6 +143,58 @@ int UI_renderButtonHintBar(SDL_Surface* dst, char** right_pairs, char** left_pai
 	return total_w;
 }
 
+void UI_showSplashScreen(SDL_Surface* screen, const char* title) {
+	GFX_clear(screen);
+
+	SDL_Surface* title_text = TTF_RenderUTF8_Blended(font.large, title, COLOR_WHITE);
+	if (title_text) {
+		SDL_BlitSurface(title_text, NULL, screen, &(SDL_Rect){(screen->w - title_text->w) / 2, screen->h / 2 - title_text->h});
+		SDL_FreeSurface(title_text);
+	}
+
+	SDL_Surface* loading = TTF_RenderUTF8_Blended(font.small, "Loading...", COLOR_GRAY);
+	if (loading) {
+		SDL_BlitSurface(loading, NULL, screen, &(SDL_Rect){(screen->w - loading->w) / 2, screen->h / 2 + SCALE1(4)});
+		SDL_FreeSurface(loading);
+	}
+
+	GFX_flip(screen);
+}
+
+void UI_renderLoadingOverlay(SDL_Surface* dst, const char* title, const char* subtitle) {
+	// Full-screen semi-transparent overlay (cached, same pattern as button hint bar)
+	static SDL_Surface* overlay = NULL;
+	if (!overlay || overlay->w != dst->w || overlay->h != dst->h) {
+		if (overlay)
+			SDL_FreeSurface(overlay);
+		overlay = SDL_CreateRGBSurface(SDL_SWSURFACE, dst->w, dst->h, 32,
+									   0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+		if (!overlay)
+			return;
+		SDL_FillRect(overlay, NULL, SDL_MapRGBA(overlay->format, 0, 0, 0, 178));
+		SDL_SetSurfaceBlendMode(overlay, SDL_BLENDMODE_BLEND);
+	}
+	SDL_BlitSurface(overlay, NULL, dst, &(SDL_Rect){0, 0});
+
+	// Title: large font, white, centered
+	int title_h = TTF_FontHeight(font.large);
+	int total_h = title_h;
+	if (subtitle)
+		total_h += SCALE1(4) + TTF_FontHeight(font.small);
+	int y = (dst->h - total_h) / 2;
+
+	SDL_Rect title_rect = {0, y, dst->w, title_h};
+	GFX_blitMessage(font.large, (char*)title, dst, &title_rect);
+
+	// Subtitle: small font, gray, centered below title
+	if (subtitle) {
+		int sub_h = TTF_FontHeight(font.small);
+		y += title_h + SCALE1(4);
+		SDL_Rect sub_rect = {0, y, dst->w, sub_h};
+		GFX_blitMessage(font.small, (char*)subtitle, dst, &sub_rect);
+	}
+}
+
 int UI_renderMenuBar(SDL_Surface* screen, const char* title, int show_setting) {
 	// Semi-transparent bar background (cached between calls)
 	static SDL_Surface* menu_bar = NULL;
@@ -148,6 +204,8 @@ int UI_renderMenuBar(SDL_Surface* screen, const char* title, int show_setting) {
 			SDL_FreeSurface(menu_bar);
 		menu_bar = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, bar_h, 32,
 										0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+		if (!menu_bar)
+			return 0;
 		SDL_FillRect(menu_bar, NULL, SDL_MapRGBA(menu_bar->format, 0, 0, 0, 178));
 		SDL_SetSurfaceBlendMode(menu_bar, SDL_BLENDMODE_BLEND);
 	}
