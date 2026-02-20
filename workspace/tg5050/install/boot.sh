@@ -46,6 +46,9 @@ fi
 
 echo after splash `cat /proc/uptime` >> /tmp/nextui_boottime
 
+# Remove stock loading splash
+sed -i '/^\/usr\/trimui\/bin\/sdl2display \/usr\/trimui\/bin\/splash.png \&/d' /mnt/SDCARD/.tmp_update/tg5050.sh
+
 echo schedutil > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 echo schedutil > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
 echo 408000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq

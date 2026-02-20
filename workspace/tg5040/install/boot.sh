@@ -49,6 +49,9 @@ CPU_PATH=/sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed
 CPU_SPEED_PERF=2000000
 echo $CPU_SPEED_PERF > $CPU_PATH
 
+# Remove stock loading splash
+sed -i '/^\/usr\/sbin\/pic2fb \/etc\/splash.png/d' /etc/init.d/runtrimui
+
 ##Remove Old Led Daemon
 if [ -f "/etc/LedControl" ]; then
 	rm -Rf "/etc/LedControl"

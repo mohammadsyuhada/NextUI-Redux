@@ -42,6 +42,7 @@ Changes:
 - Added confirmation dialog on action the require it
 - Rewrite Settings app in C with UI redesign 
 - Rewrite Updater app in C with UI redesign 
+- Integrate the Remove Loading feature directly in install script, so no need a separate app. 
 
 New Features:
 - Redesigned UI. It is now consistent throughout the system.
