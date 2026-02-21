@@ -41,7 +41,7 @@ int suffixMatch(char* suf, const char* str) {
 int exactMatch(const char* str1, const char* str2) {
 	if (!str1 || !str2)
 		return 0; // NULL isn't safe here
-	int len1 = strlen(str1);
+	size_t len1 = strlen(str1);
 	if (len1 != strlen(str2))
 		return 0;
 	return (strncmp(str1, str2, len1) == 0);
@@ -215,7 +215,7 @@ size_t trimString(char* out, size_t len, const char* str, bool first) {
 
 	// Set output size to minimum of trimmed string length and buffer size minus
 	// 1
-	out_size = (end - str) < len - 1 ? (end - str) : len - 1;
+	out_size = (size_t)(end - str) < len - 1 ? (size_t)(end - str) : len - 1;
 
 	// Copy trimmed string and add null terminator
 	memcpy(out, str, out_size);
@@ -262,7 +262,8 @@ void serializeTime(char* dest_str, int nTime) {
 	}
 }
 int countChar(const char* str, char ch) {
-	int i, count = 0;
+	size_t i;
+	int count = 0;
 	for (i = 0; i <= strlen(str); i++) {
 		if (str[i] == ch) {
 			count++;

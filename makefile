@@ -18,6 +18,7 @@ endif
 ###########################################################
 
 BUILD_HASH:=$(shell git rev-parse --short HEAD)
+BUILD_TAG:=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "untagged")
 BUILD_BRANCH:=$(shell (git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD) | sed 's/\//-/g')
 RELEASE_TIME:=$(shell TZ=GMT date +%Y%m%d)
 ifeq ($(BUILD_BRANCH),main)
@@ -241,8 +242,6 @@ special:
 #endif
 
 tidy:
-	rm -f releases/$(RELEASE_NAME)-base.zip 
-	rm -f releases/$(RELEASE_NAME)-extras.zip
 	rm -f releases/$(RELEASE_NAME)-all.zip
 	# ----------------------------------------------------
 	# copy update from merged platform to old pre-merge platform bin so old cards update properly
@@ -260,7 +259,7 @@ package: tidy
 	cp ./workspace/readmes/EXTRAS-out.txt ./build/EXTRAS/README.txt
 	rm -rf ./workspace/readmes
 	
-	cd ./build/SYSTEM && echo "$(RELEASE_NAME)\n$(BUILD_HASH)\n$(RELEASE_TAG)" > version.txt
+	cd ./build/SYSTEM && printf "%s\n%s\n%s\n" "$(RELEASE_NAME)" "$(BUILD_HASH)" "$(BUILD_TAG)" > version.txt
 	./commits.sh > ./build/SYSTEM/commits.txt
 	cd ./build && find . -type f -name '.DS_Store' -delete
 	mkdir -p ./build/PAYLOAD
@@ -284,14 +283,8 @@ package: tidy
 	mkdir -p ./build/BASE
 	mv $(VENDOR_DEST)/* ./build/BASE/
 	
-	# TODO: can I just add everything in BASE to zip?
-	# cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-base.zip Bios Roms Saves miyoo miyoo354 trimui rg35xx rg35xxplus gkdpixel miyoo355 magicx em_ui.sh MinUI.zip README.txt
-	cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-base.zip Bios Roms Saves Shaders Overlays trimui em_ui.sh MinUI.zip *.pakz README.txt
-	cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-extras.zip Bios Emus Roms Saves Shaders Overlays Tools README.txt
-	echo "$(RELEASE_VERSION)" > ./build/latest.txt
-
-	# compound zip (brew install libzip needed) 
-	cd ./releases && zipmerge $(RELEASE_NAME)-all.zip $(RELEASE_NAME)-base.zip  && zipmerge $(RELEASE_NAME)-all.zip $(RELEASE_NAME)-extras.zip
+	cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-all.zip Bios Cheats Collections Favorites Music Overlays "Recently Played" Roms Saves Shaders trimui MinUI.zip *.pakz README.txt
+	cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-all.zip Bios Cheats Emus Roms Saves Overlays Tools README.txt
 	
 ###########################################################
 

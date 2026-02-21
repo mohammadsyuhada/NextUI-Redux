@@ -946,7 +946,7 @@ void CFG_get(const char* key, char* value) {
 	}
 
 	else {
-		sprintf(value, "");
+		value[0] = '\0';
 	}
 }
 

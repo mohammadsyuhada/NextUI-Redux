@@ -156,7 +156,7 @@ static void kill_sdcard_users(void) {
 	pid_t self = getpid();
 	struct dirent* entry;
 	char fd_dir_path[PATH_MAX];
-	char fd_path[PATH_MAX];
+	char fd_path[PATH_MAX + NAME_MAX + 1];
 	char target[PATH_MAX];
 
 	while ((entry = readdir(proc)) != NULL) {

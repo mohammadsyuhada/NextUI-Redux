@@ -1210,12 +1210,16 @@ static void reset_ra_sort_order(void) {
 // ============================================
 
 static char about_nextui_version[128] = "";
+static char about_release_date[128] = "";
 static char about_platform[128] = "";
 static char about_os_version[128] = "";
 static char about_busybox_version[128] = "";
 
 static const char* get_about_version(void) {
 	return about_nextui_version;
+}
+static const char* get_about_release_date(void) {
+	return about_release_date;
 }
 static const char* get_about_platform(void) {
 	return about_platform;
@@ -1228,16 +1232,43 @@ static const char* get_about_busybox(void) {
 }
 
 static void init_about_info(void) {
-	/* NextUI version: read from version.txt */
+	/* NextUI version: read from version.txt and format as "tag (name-hash)" */
 	FILE* vf = fopen(ROOT_SYSTEM_PATH "/version.txt", "r");
 	if (vf) {
-		if (fgets(about_nextui_version, sizeof(about_nextui_version), vf)) {
-			/* strip trailing newline */
-			int len = (int)strlen(about_nextui_version);
-			while (len > 0 && (about_nextui_version[len - 1] == '\n' || about_nextui_version[len - 1] == '\r'))
-				about_nextui_version[--len] = '\0';
+		char line_buf[256];
+		char release_name[256] = {0};
+		char build_hash[256] = {0};
+		char build_tag[256] = {0};
+		int line_num = 0;
+		while (fgets(line_buf, sizeof(line_buf), vf) && line_num < 3) {
+			line_num++;
+			int len = (int)strlen(line_buf);
+			while (len > 0 && (line_buf[len - 1] == '\n' || line_buf[len - 1] == '\r'))
+				line_buf[--len] = '\0';
+			if (line_num == 1)
+				strncpy(release_name, line_buf, sizeof(release_name) - 1);
+			else if (line_num == 2)
+				strncpy(build_hash, line_buf, sizeof(build_hash) - 1);
+			else if (line_num == 3)
+				strncpy(build_tag, line_buf, sizeof(build_tag) - 1);
 		}
 		fclose(vf);
+		/* Version: use tag if available, otherwise release name */
+		if (build_tag[0] && strcmp(build_tag, "untagged") != 0)
+			strncpy(about_nextui_version, build_tag, sizeof(about_nextui_version) - 1);
+		else
+			strncpy(about_nextui_version, release_name, sizeof(about_nextui_version) - 1);
+		about_nextui_version[sizeof(about_nextui_version) - 1] = '\0';
+		/* Release date: extract YYYYMMDD from release name (e.g. "NextUI-20260221-0") */
+		char* dash = strchr(release_name, '-');
+		if (dash && strlen(dash + 1) >= 8) {
+			char date_raw[9] = {0};
+			strncpy(date_raw, dash + 1, 8);
+			snprintf(about_release_date, sizeof(about_release_date),
+				"%.4s-%.2s-%.2s (%s)", date_raw, date_raw + 4, date_raw + 6, build_hash);
+		} else {
+			snprintf(about_release_date, sizeof(about_release_date), "%s (%s)", release_name, build_hash);
+		}
 	}
 
 	/* Platform */
@@ -1641,7 +1672,9 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	// ============================
 	idx = 0;
 	about_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
-		"NextUI version", "", get_about_version);
+		"NextUI Redux version", "", get_about_version);
+	about_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
+		"Release date", "", get_about_release_date);
 	about_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
 		"Platform", "", get_about_platform);
 	about_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
