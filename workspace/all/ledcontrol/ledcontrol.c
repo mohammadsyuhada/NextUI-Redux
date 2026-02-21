@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 	int quit = 0;
 	bool dirty = true;
-	int show_setting = 0; // 1=brightness,2=volume,3=colortemp
+	IndicatorType show_setting = INDICATOR_NONE;
 	while (!quit) {
 		GFX_startFrame();
 		uint32_t frame_start = SDL_GetTicks();

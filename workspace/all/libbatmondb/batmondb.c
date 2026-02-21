@@ -1,4 +1,3 @@
-// heavily modified from the Onion original: https://github.com/OnionUI/Onion/tree/main/src/batmon
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/stat.h>
@@ -55,7 +54,7 @@ int get_best_session_time(sqlite3* bat_log_db, const char* device) {
 
 	if (bat_log_db != NULL) {
 		const char* sql = "SELECT * FROM device_specifics WHERE device_serial = ? ORDER BY id LIMIT 1;";
-		sqlite3_stmt* stmt;
+		sqlite3_stmt* stmt = NULL;
 
 		int rc = sqlite3_prepare_v2(bat_log_db, sql, -1, &stmt, 0);
 		if (rc == SQLITE_OK) {

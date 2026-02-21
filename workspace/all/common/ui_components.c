@@ -93,16 +93,16 @@ int UI_renderButtonHintBar(SDL_Surface* dst, char** pairs) {
 		int ow;
 	};
 
-	struct Hint hints[8];
+	struct Hint hints[4];
 	int count = 0;
 	int total_w = 0;
 
-	// Parse hardware hints first, then caller pairs
+	// Parse hardware hints first (priority), then caller pairs
 	char** groups[] = {hw_pairs, pairs};
 	for (int g = 0; g < 2; g++) {
 		if (!groups[g])
 			continue;
-		for (int i = 0; groups[g][i * 2] && count < 8; i++) {
+		for (int i = 0; groups[g][i * 2] && count < 4; i++) {
 			char* button = groups[g][i * 2];
 			char* hint = groups[g][i * 2 + 1];
 			if (!hint)

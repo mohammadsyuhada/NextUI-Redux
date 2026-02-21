@@ -4291,7 +4291,7 @@ static int ignore_menu = 0;
 static void input_poll_callback(void) {
 	PAD_poll();
 
-	int show_setting = 0;
+	IndicatorType show_setting = INDICATOR_NONE;
 	PWR_update(NULL, &show_setting, Menu_beforeSleep, Menu_afterSleep);
 
 	// I _think_ this can stay as is...
@@ -7865,7 +7865,7 @@ static int Menu_options(MenuList* list) {
 
 	bool dirty = true;
 	int show_options = 1;
-	int show_settings = 0;
+	IndicatorType show_settings = INDICATOR_NONE;
 	int await_input = 0;
 
 	// dependent on option list offset top and bottom, eg. the gray triangles
@@ -8598,7 +8598,7 @@ static void Menu_loop(void) {
 	Menu_initState();
 
 	int status = STATUS_CONT; // TODO: no longer used?
-	int show_setting = 0;
+	IndicatorType show_setting = INDICATOR_NONE;
 	bool dirty = true;
 	int ignore_menu = 0;
 	int menu_start = 0;

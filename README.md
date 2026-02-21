@@ -31,24 +31,24 @@ It is a deliberate divergence — feature-driven and structure-focused.
 
 ## What's Different
 
-Changes:
+Improvements:
 
-- Refactored nextui.c from monolithic code to a smaller, focused components
+- Refactored `nextui.c` from monolithic code to a smaller, focused components
 - Various bug fixes and code optimizations across the refactored components
-- Added clang-format tooling and code style enforcement, also support for VSCode IDE
-- Reusable UI component that can be used by other tools for a consistent design
-- Fix wrong wifi/bluetooth state icon in quick menu
-- Added semi transparent progress overlay for all blocking actions
-- Added confirmation dialog on action the require it
-- Rewrite Settings app in C with UI redesign 
-- Rewrite Updater app in C with UI redesign 
-- Integrate the Remove Loading feature directly in install script, so no need a separate app. 
+- Added clang-format tooling and code style enforcement, with VSCode support
+- Introduced reusable UI components for consistent design across tools
+- Fixed incorrect Wi-Fi/Bluetooth state icons in the quick menu
+- Added a semi-transparent progress overlay for all blocking actions
+- Added confirmation dialogs for actions that require them
+- Rewrote the Settings and Updater app in C with a redesigned UI
+- Updated the Battery app with the redesigned UI 
+- Integrated the Remove Loading feature directly into the install script (no separate app required) 
 
 New Features:
-- Redesigned UI. It is now consistent throughout the system.
-- Game art fallback for games without save state in the game switcher
-- Shortcut in the main menu for quick access to the regularly used Tools/Games
-- User can directly select a wifi network/bluetooth device to connect in quick menu
+- Redesigned UI with consistent styling across the system.
+- Game art fallback for titles without save states in the game switcher
+- Main menu shortcut for quick access to frequently used Tools/Games
+- Direct selection of Wi-Fi networks and Bluetooth devices from the quick menu
 
 Upcoming Features:
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)

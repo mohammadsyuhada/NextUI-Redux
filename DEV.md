@@ -88,6 +88,9 @@ docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-too
 
 # bootlogo
 docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-toolchain:latest /bin/bash -c 'source ~/.bashrc && cd /root/workspace/all/bootlogo && make PLATFORM=tg5040' && adb push workspace/all/bootlogo/build/tg5040/bootlogo.elf /mnt/SDCARD/Tools/tg5040/Bootlogo.pak/
+
+# battery
+docker run --rm -v $(pwd)/workspace:/root/workspace ghcr.io/loveretro/tg5040-toolchain:latest /bin/bash -c 'source ~/.bashrc && cd /root/workspace/all/battery && make PLATFORM=tg5040' && adb push workspace/all/battery/build/tg5040/battery.elf /mnt/SDCARD/Tools/tg5040/Battery.pak/
 ```
 
 ## Component Locations

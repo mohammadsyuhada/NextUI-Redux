@@ -1,4 +1,3 @@
-// heavily modified from the Onion original: https://github.com/OnionUI/Onion/tree/main/src/batteryMonitorUI
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -242,7 +241,7 @@ void compute_graph(void) {
 
 	if (bat_log_db != NULL) {
 		const char* sql = "SELECT * FROM bat_activity WHERE device_serial = ? ORDER BY id DESC;";
-		sqlite3_stmt* stmt;
+		sqlite3_stmt* stmt = NULL;
 		int rc = sqlite3_prepare_v2(bat_log_db, sql, -1, &stmt, 0);
 
 		if (rc == SQLITE_OK) {
@@ -259,6 +258,10 @@ void compute_graph(void) {
 				}
 
 				current_index = (graph.layout.graph_max_size - 1) - duration_to_pixel(total_duration);
+				if (current_index < 0) {
+					b_quit = true;
+					break;
+				}
 				graph.graphic[current_index].is_charging = is_charging;
 
 				if (bat_perc > 100)
@@ -288,25 +291,27 @@ void compute_graph(void) {
 								secondsToHoursMinutes(estimated_playtime, session_left);
 								// shift of the existing logs to make room for the estimation line
 								int room_to_make = estimation_line_size + GRAPH_ESTIMATED_LINE_GAP;
-								if (current_index - room_to_make >= 0) {
+								if (current_index - room_to_make >= 0 && room_to_make < graph.layout.graph_max_size) {
 									for (int i = current_index; i < graph.layout.graph_max_size; i++) {
 										graph.graphic[i - room_to_make].pixel_height = graph.graphic[i].pixel_height;
 										graph.graphic[i - room_to_make].is_charging = graph.graphic[i].is_charging;
 										graph.graphic[i].pixel_height = 0;
 										graph.graphic[i].is_charging = false;
 									}
-								}
-								total_duration += estimated_playtime + (int)(GRAPH_ESTIMATED_LINE_GAP)*GRAPH_DISPLAY_DURATION / graph.layout.graph_display_size_x;
-								current_index -= room_to_make;
-								previous_index -= room_to_make;
-								begining_session_index = previous_index;
-								for (int x = (graph.layout.graph_max_size - room_to_make); x < graph.layout.graph_max_size; x++) {
-									int y = graph.graphic[previous_index].pixel_height + (int)(slope * (x - previous_index));
-									if (y > 0) {
-										graph.graphic[x].pixel_height = y;
-										graph.graphic[x].is_estimated = true;
-									} else
-										break;
+									total_duration += estimated_playtime + (int)(GRAPH_ESTIMATED_LINE_GAP)*GRAPH_DISPLAY_DURATION / graph.layout.graph_display_size_x;
+									current_index -= room_to_make;
+									previous_index -= room_to_make;
+									begining_session_index = previous_index;
+									for (int x = (graph.layout.graph_max_size - room_to_make); x < graph.layout.graph_max_size; x++) {
+										int y = graph.graphic[previous_index].pixel_height + (int)(slope * (x - previous_index));
+										if (y > 0 && y <= graph.layout.graph_display_size_y) {
+											graph.graphic[x].pixel_height = y;
+											graph.graphic[x].is_estimated = true;
+										} else
+											break;
+									}
+								} else {
+									estimation_line_size = 0;
 								}
 							} else {
 								estimation_line_size = 0;
@@ -465,11 +470,14 @@ void renderPage() {
 				}
 			}
 
-			if (x < graph_display_right && y > 0) {
+			if (x < graph_display_right && y > 0 && y <= graph.layout.graph_display_size_y) {
 				// Actual graph line
 				if (half_line_width >= 0) {
 					for (int k = -half_line_width; k <= half_line_width; k++) {
-						int index = (graph_display_bottom - y + k) * screen->pitch + x * screen->format->BytesPerPixel;
+						int row = graph_display_bottom - y + k;
+						if (row < 0 || row >= screen->h)
+							continue;
+						int index = row * screen->pitch + x * screen->format->BytesPerPixel;
 						*((Uint32*)((Uint8*)screen->pixels + index)) = pixel_color;
 					}
 				}
@@ -554,6 +562,10 @@ void initLayout() {
 	graph.layout.graph_max_size = GRAPH_MAX_FULL_PAGES * graph.layout.graph_display_size_x;
 
 	graph.graphic = (GraphSpot*)malloc(graph.layout.graph_max_size * sizeof(GraphSpot));
+	if (!graph.graphic) {
+		LOG_error("Failed to allocate graph buffer");
+		return;
+	}
 	for (int i = 0; i < graph.layout.graph_max_size; i++) {
 		graph.graphic[i].pixel_height = 0;
 		graph.graphic[i].is_charging = false;
@@ -561,24 +573,39 @@ void initLayout() {
 	}
 }
 
-int main(int argc, char* argv[]) {
-	InitSettings();
+// ============================================
+// Main
+// ============================================
 
-	PWR_setCPUSpeed(CPU_SPEED_MENU);
-	device_model = PLAT_getModel();
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
 
 	screen = GFX_init(MODE_MAIN);
+	UI_showSplashScreen(screen, "Battery");
+
+	InitSettings();
+
+	device_model = PLAT_getModel();
+
 	PAD_init();
 	PWR_init();
 
 	setup_signal_handlers();
 
 	initLayout();
+	if (!graph.graphic) {
+		QuitSettings();
+		PWR_quit();
+		PAD_quit();
+		GFX_quit();
+		return EXIT_FAILURE;
+	}
 	compute_graph();
 	renderPage();
 
 	bool dirty = true;
-	int show_setting = 0;
+	IndicatorType show_setting = INDICATOR_NONE;
 	while (!app_quit) {
 		GFX_startFrame();
 		PAD_poll();
@@ -623,38 +650,11 @@ int main(int argc, char* argv[]) {
 		if (dirty) {
 			GFX_clear(screen);
 
-			// title pill
 			{
-				int ow = GFX_blitHardwareGroup(screen, show_setting);
-				int max_width = screen->w - SCALE1(PADDING * 2) - ow;
-
-				char display_name[256];
-
-				switch (current_zoom) {
-				case 0:
-					sprintf(display_name, "Battery usage: Last %s", "16 hours");
-					break;
-				case 1:
-					sprintf(display_name, "Battery usage: Last %s", "8 hours");
-					break;
-				case 2:
-					sprintf(display_name, "Battery usage: Last %s", "4 hours");
-					break;
-				default:
-					sprintf(display_name, "Battery usage: Last %s", "8 hours");
-					break;
-				}
-
+				const char* zoom_labels[] = {"Last 16 hours", "Last 8 hours", "Last 4 hours"};
 				char title[256];
-				int text_width = GFX_truncateText(font.large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
-				max_width = MIN(max_width, text_width);
-
-				SDL_Surface* text;
-				text = TTF_RenderUTF8_Blended(font.large, title, COLOR_WHITE);
-
-				GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
-				SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
-				SDL_FreeSurface(text);
+				snprintf(title, sizeof(title), "Battery: %s", zoom_labels[current_zoom]);
+				UI_renderMenuBar(screen, title);
 			}
 
 			renderPage();
@@ -666,6 +666,8 @@ int main(int argc, char* argv[]) {
 		} else
 			GFX_sync();
 	}
+
+	free(graph.graphic);
 
 	QuitSettings();
 	PWR_quit();

@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
 	int option_count = 7;
 
 	bool dirty = true;
-	int show_setting = 0;
+	IndicatorType show_setting = INDICATOR_NONE;
 	while (!quit) {
 		GFX_startFrame();
 		PAD_poll();

@@ -385,7 +385,7 @@ int main(int argc, char* argv[]) {
 	GFX_clearLayers(LAYER_ALL);
 	GFX_clear(screen);
 
-	int show_setting = INDICATOR_NONE;
+	IndicatorType show_setting = INDICATOR_NONE;
 	pthread_t cpucheckthread = 0;
 	if (pthread_create(&cpucheckthread, NULL, PLAT_cpu_monitor, NULL) == 0) {
 		pthread_detach(cpucheckthread);

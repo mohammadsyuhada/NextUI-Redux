@@ -41,7 +41,7 @@ LDFLAGS += -s -lsqlite3
 
 PRODUCT= build/$(PLATFORM)/lib$(TARGET).so
 
-build: 
+build: $(PREFIX_LOCAL)/include/msettings.h
 	mkdir -p build/$(PLATFORM)
 	$(CC) -c -Werror -fpic $(SOURCE) -Wl,--no-as-needed $(LDFLAGS) $(CFLAGS)
 	$(CC) -shared -o $(PRODUCT) "$(TARGET).o" "utils.o" $(LDFLAGS)
@@ -49,6 +49,9 @@ build:
 	mkdir -p "$(PREFIX_LOCAL)/lib"
 	cp "$(TARGET).h" "$(PREFIX_LOCAL)/include"
 	cp $(PRODUCT) "$(PREFIX_LOCAL)/lib"
+
+$(PREFIX_LOCAL)/include/msettings.h:
+	cd ../../$(PLATFORM)/libmsettings && make
 
 clean:
 	rm -f *.o

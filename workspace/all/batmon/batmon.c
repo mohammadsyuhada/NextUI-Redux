@@ -33,9 +33,6 @@ void sigintHandler(int signum) {
 	case SIGTERM:
 		quit = true;
 		break;
-	case SIGSTOP:
-		is_suspended = true;
-		break;
 	case SIGCONT:
 		is_suspended = false;
 		break;
@@ -48,6 +45,7 @@ void sigintHandler(int signum) {
 
 void register_handler() {
 	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigintHandler;
 
 	sigemptyset(&sa.sa_mask);
@@ -57,10 +55,6 @@ void register_handler() {
 	sigemptyset(&sa.sa_mask);
 	sigaddset(&sa.sa_mask, SIGTERM);
 	sigaction(SIGTERM, &sa, 0);
-
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGSTOP);
-	sigaction(SIGSTOP, &sa, 0);
 
 	sigemptyset(&sa.sa_mask);
 	sigaddset(&sa.sa_mask, SIGCONT);
@@ -76,7 +70,7 @@ void update_current_duration(void) {
 
 	if (bat_log_db != NULL) {
 		const char* sql = "SELECT * FROM bat_activity WHERE device_serial = ? ORDER BY id DESC LIMIT 1;";
-		sqlite3_stmt* stmt;
+		sqlite3_stmt* stmt = NULL;
 		int rc = sqlite3_prepare_v2(bat_log_db, sql, -1, &stmt, 0);
 
 		if (rc == SQLITE_OK) {
@@ -88,22 +82,20 @@ void update_current_duration(void) {
 
 				const char* update_sql = "UPDATE bat_activity SET duration = ? WHERE id = ?";
 
-				sqlite3_stmt* update_stmt;
+				sqlite3_stmt* update_stmt = NULL;
 				rc = sqlite3_prepare_v2(bat_log_db, update_sql, -1, &update_stmt, 0);
 
 				if (rc == SQLITE_OK) {
 					sqlite3_bind_int(update_stmt, 1, new_duration);
 					sqlite3_bind_int(update_stmt, 2, sqlite3_column_int(stmt, 0));
 
-					// Exécuter la mise à jour
 					rc = sqlite3_step(update_stmt);
-
 					battery_current_state_duration = 0;
-					sqlite3_finalize(stmt);
-					sqlite3_finalize(update_stmt);
 				}
+				sqlite3_finalize(update_stmt);
 			}
 		}
+		sqlite3_finalize(stmt);
 		close_battery_log_db(bat_log_db);
 	}
 }
@@ -130,11 +122,11 @@ void log_new_percentage(int new_bat_value, int is_charging) {
 		}
 
 		if (count > FILO_MIN_SIZE) {
-			// Deletion of the 1st entry
 			const char* delete_sql = "DELETE FROM bat_activity WHERE id = (SELECT MIN(id) FROM bat_activity);";
-			sqlite3_prepare_v2(bat_log_db, delete_sql, -1, &stmt, 0);
-			sqlite3_step(stmt);
-			sqlite3_finalize(stmt);
+			if (sqlite3_prepare_v2(bat_log_db, delete_sql, -1, &stmt, 0) == SQLITE_OK) {
+				sqlite3_step(stmt);
+				sqlite3_finalize(stmt);
+			}
 		}
 	}
 	close_battery_log_db(bat_log_db);
@@ -147,14 +139,14 @@ int get_current_session_time(void) {
 
 	if (bat_log_db != NULL) {
 		const char* sql = "SELECT * FROM bat_activity WHERE device_serial = ? AND is_charging = 1 ORDER BY id DESC LIMIT 1;";
-		sqlite3_stmt* stmt;
+		sqlite3_stmt* stmt = NULL;
 		int rc = sqlite3_prepare_v2(bat_log_db, sql, -1, &stmt, 0);
 
 		if (rc == SQLITE_OK) {
 			sqlite3_bind_text(stmt, 1, device_model, -1, SQLITE_STATIC);
 			rc = sqlite3_step(stmt);
 			if (rc == SQLITE_ROW) {
-				sqlite3_stmt* stmt_sum;
+				sqlite3_stmt* stmt_sum = NULL;
 				const char* query_sum = "SELECT SUM(duration) FROM bat_activity WHERE device_serial = ? AND id > ?;";
 				rc = sqlite3_prepare_v2(bat_log_db, query_sum, -1, &stmt_sum, NULL);
 				if (rc == SQLITE_OK) {
@@ -168,8 +160,8 @@ int get_current_session_time(void) {
 			}
 		}
 		sqlite3_finalize(stmt);
+		close_battery_log_db(bat_log_db);
 	}
-	close_battery_log_db(bat_log_db);
 
 	return current_session_duration;
 }
@@ -181,7 +173,7 @@ int set_best_session_time(int best_session) {
 
 	if (bat_log_db != NULL) {
 		const char* sql = "SELECT * FROM device_specifics WHERE device_serial = ? ORDER BY id LIMIT 1;";
-		sqlite3_stmt* stmt;
+		sqlite3_stmt* stmt = NULL;
 		int rc = sqlite3_prepare_v2(bat_log_db, sql, -1, &stmt, 0);
 
 		if (rc == SQLITE_OK) {
@@ -190,22 +182,20 @@ int set_best_session_time(int best_session) {
 			if (rc == SQLITE_ROW) {
 				const char* update_sql = "UPDATE device_specifics SET best_session = ? WHERE id = ?";
 
-				sqlite3_stmt* update_stmt;
+				sqlite3_stmt* update_stmt = NULL;
 				rc = sqlite3_prepare_v2(bat_log_db, update_sql, -1, &update_stmt, 0);
 
 				if (rc == SQLITE_OK) {
 					sqlite3_bind_int(update_stmt, 1, best_session);
 					sqlite3_bind_int(update_stmt, 2, sqlite3_column_int(stmt, 0));
 
-					// Exécuter la mise à jour
 					rc = sqlite3_step(update_stmt);
-
-					sqlite3_finalize(stmt);
-					sqlite3_finalize(update_stmt);
 					is_success = 1;
 				}
+				sqlite3_finalize(update_stmt);
 			}
 		}
+		sqlite3_finalize(stmt);
 		close_battery_log_db(bat_log_db);
 	}
 
@@ -222,7 +212,6 @@ int main(int argc, char* argv[]) {
 
 	FILE* fp;
 	int old_percentage = -1;
-	int lowest_percentage_after_charge = 500;
 	atexit(cleanup);
 	register_handler();
 	int ticks = CHECK_BATTERY_TIMEOUT_S;
@@ -238,7 +227,6 @@ int main(int argc, char* argv[]) {
 		if (pwr.is_charging) {
 			if (!was_charging) {
 				// Charging just started
-				lowest_percentage_after_charge = 500; // Reset lowest percentage before charge
 				was_charging = true;
 				update_current_duration();
 
@@ -246,7 +234,7 @@ int main(int argc, char* argv[]) {
 				LOG_debug("Charging detected - Previous session duration = %d\n", session_time);
 
 				if (session_time > best_session_time) {
-					LOG_debug("Best session duration\n", 1);
+					LOG_debug("Best session duration\n");
 					set_best_session_time(session_time);
 					best_session_time = session_time;
 				}
@@ -255,7 +243,6 @@ int main(int argc, char* argv[]) {
 		} else if (was_charging) {
 			// Charging just stopped
 			was_charging = false;
-			lowest_percentage_after_charge = 500; // Reset lowest percentage after charge
 
 			LOG_debug(
 				"Charging stopped: suspended = %d, perc = %d\n",

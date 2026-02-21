@@ -321,7 +321,7 @@ int main(int argc, char* argv[]) {
 	int visible_rows = end;
 
 	bool dirty = true;
-	int show_setting = 0;
+	IndicatorType show_setting = INDICATOR_NONE;
 	while (!app_quit) {
 		GFX_startFrame();
 		PAD_poll();
