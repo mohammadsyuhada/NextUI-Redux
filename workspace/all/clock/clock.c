@@ -10,6 +10,10 @@
 #include "ui_components.h"
 #include "utils.h"
 
+// ============================================
+// Constants
+// ============================================
+
 enum {
 	CURSOR_YEAR,
 	CURSOR_MONTH,
@@ -20,39 +24,154 @@ enum {
 	CURSOR_AMPM,
 };
 
-int main(int argc, char* argv[]) {
-	PWR_setCPUSpeed(CPU_SPEED_MENU);
+#define DIGIT_WIDTH 10
+#define DIGIT_HEIGHT 16
 
-	SDL_Surface* screen = GFX_init(MODE_MAIN);
+#define CHAR_SLASH 10
+#define CHAR_COLON 11
+
+// ============================================
+// Globals
+// ============================================
+
+static SDL_Surface* screen;
+static SDL_Surface* digits;
+
+static int32_t day_selected;
+static int32_t month_selected;
+static uint32_t year_selected;
+static int32_t hour_selected;
+static int32_t minute_selected;
+static int32_t seconds_selected;
+static int32_t am_selected;
+
+// ============================================
+// Rendering helpers
+// ============================================
+
+// x,y,w are pre-scaled
+static int blit(int i, int x, int y) {
+	SDL_BlitSurface(digits, &(SDL_Rect){i * SCALE1(10), 0, SCALE2(10, 16)}, screen, &(SDL_Rect){x, y});
+	return x + SCALE1(10);
+}
+
+static void blitBar(int x, int y, int w) {
+	GFX_blitPill(ASSET_UNDERLINE, screen, &(SDL_Rect){x, y, w});
+}
+
+static int blitNumber(int num, int x, int y) {
+	int n;
+	if (num > 999) {
+		n = num / 1000;
+		num -= n * 1000;
+		x = blit(n, x, y);
+
+		n = num / 100;
+		num -= n * 100;
+		x = blit(n, x, y);
+	}
+	n = num / 10;
+	num -= n * 10;
+	x = blit(n, x, y);
+
+	n = num;
+	x = blit(n, x, y);
+
+	return x;
+}
+
+// ============================================
+// Validation
+// ============================================
+
+static void validate(void) {
+	// leap year
+	uint32_t february_days = 28;
+	if (((year_selected % 4 == 0) && (year_selected % 100 != 0)) || (year_selected % 400 == 0))
+		february_days = 29;
+
+	if (month_selected > 12)
+		month_selected -= 12;
+	else if (month_selected < 1)
+		month_selected += 12;
+
+	if (year_selected > 2100)
+		year_selected = 2100;
+	else if (year_selected < 1970)
+		year_selected = 1970;
+
+	switch (month_selected) {
+	case 2:
+		if (day_selected > (int32_t)february_days)
+			day_selected -= february_days;
+		else if (day_selected < 1)
+			day_selected += february_days;
+		break;
+	case 4:
+	case 6:
+	case 9:
+	case 11:
+		if (day_selected > 30)
+			day_selected -= 30;
+		else if (day_selected < 1)
+			day_selected += 30;
+		break;
+	default:
+		if (day_selected > 31)
+			day_selected -= 31;
+		else if (day_selected < 1)
+			day_selected += 31;
+		break;
+	}
+
+	// time
+	if (hour_selected > 23)
+		hour_selected -= 24;
+	else if (hour_selected < 0)
+		hour_selected += 24;
+	if (minute_selected > 59)
+		minute_selected -= 60;
+	else if (minute_selected < 0)
+		minute_selected += 60;
+	if (seconds_selected > 59)
+		seconds_selected -= 60;
+	else if (seconds_selected < 0)
+		seconds_selected += 60;
+}
+
+// ============================================
+// Main
+// ============================================
+
+int main(int argc, char* argv[]) {
+	(void)argc;
+	(void)argv;
+
+	screen = GFX_init(MODE_MAIN);
+	UI_showSplashScreen(screen, "Clock");
+
+	InitSettings();
 	PAD_init();
 	PWR_init();
-	InitSettings();
 
-	// TODO: make use of SCALE1()
-	SDL_Surface* digits = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, SCALE1(120), SCALE1(16), 32, screen->format->format);
+	setup_signal_handlers();
+
+	// Build digit sprite sheet
+	digits = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, SCALE1(120), SCALE1(16), 32, screen->format->format);
 	SDL_FillRect(digits, NULL, RGB_BLACK);
 
 	SDL_Surface* digit;
 	char* chars[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "/", ":", NULL};
 	char* c;
 	int i = 0;
-#define DIGIT_WIDTH 10
-#define DIGIT_HEIGHT 16
-
-#define CHAR_SLASH 10
-#define CHAR_COLON 11
-	while (c = chars[i]) {
+	while ((c = chars[i])) {
 		digit = TTF_RenderUTF8_Blended(font.large, c, COLOR_WHITE);
 		int y = i == CHAR_COLON ? SCALE1(-1.5) : 0; // : sits too low naturally
-		// TODO: y offset is wrong here
-		// printf("%s x:%i y:%i SCALE1(DIGIT_HEIGHT):%i SCALE1(DIGIT_HEIGHT) - digit->h:%i\n", c, (i * SCALE1(DIGIT_WIDTH)), y, SCALE1(DIGIT_HEIGHT), SCALE1(DIGIT_HEIGHT) - digit->h); fflush(stdout);
 		SDL_BlitSurface(digit, NULL, digits, &(SDL_Rect){(i * SCALE1(DIGIT_WIDTH)) + (SCALE1(DIGIT_WIDTH) - digit->w) / 2, y + (SCALE1(DIGIT_HEIGHT) - digit->h) / 2});
 		SDL_FreeSurface(digit);
 		i += 1;
 	}
 
-	SDL_Event event;
-	int quit = 0;
 	int save_changes = 0;
 	int select_cursor = 0;
 	int show_24hour = exists(USERDATA_PATH "/show_24hour");
@@ -60,105 +179,21 @@ int main(int argc, char* argv[]) {
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 
-	int32_t day_selected = tm.tm_mday;
-	int32_t month_selected = tm.tm_mon + 1;
-	uint32_t year_selected = tm.tm_year + 1900;
-	int32_t hour_selected = tm.tm_hour;
-	int32_t minute_selected = tm.tm_min;
-	int32_t seconds_selected = tm.tm_sec;
-	int32_t am_selected = tm.tm_hour < 12;
+	day_selected = tm.tm_mday;
+	month_selected = tm.tm_mon + 1;
+	year_selected = tm.tm_year + 1900;
+	hour_selected = tm.tm_hour;
+	minute_selected = tm.tm_min;
+	seconds_selected = tm.tm_sec;
+	am_selected = tm.tm_hour < 12;
 
-	// x,y,w are pre-scaled
-	int blit(int i, int x, int y) {
-		SDL_BlitSurface(digits, &(SDL_Rect){i * SCALE1(10), 0, SCALE2(10, 16)}, screen, &(SDL_Rect){x, y});
-		return x + SCALE1(10);
-	}
-	void blitBar(int x, int y, int w) {
-		GFX_blitPill(ASSET_UNDERLINE, screen, &(SDL_Rect){x, y, w});
-	}
-	int blitNumber(int num, int x, int y) {
-		int n;
-		if (num > 999) {
-			n = num / 1000;
-			num -= n * 1000;
-			x = blit(n, x, y);
+	int option_count = (show_24hour ? CURSOR_SECOND : CURSOR_AMPM) + 1;
 
-			n = num / 100;
-			num -= n * 100;
-			x = blit(n, x, y);
-		}
-		n = num / 10;
-		num -= n * 10;
-		x = blit(n, x, y);
-
-		n = num;
-		x = blit(n, x, y);
-
-		return x;
-	}
-	void validate(void) {
-		// leap year
-		uint32_t february_days = 28;
-		if (((year_selected % 4 == 0) && (year_selected % 100 != 0)) || (year_selected % 400 == 0))
-			february_days = 29;
-
-		// day
-		// if (day_selected < 1) day_selected = 1;
-		if (month_selected > 12)
-			month_selected -= 12;
-		else if (month_selected < 1)
-			month_selected += 12;
-
-		if (year_selected > 2100)
-			year_selected = 2100;
-		else if (year_selected < 1970)
-			year_selected = 1970;
-
-		switch (month_selected) {
-		case 2:
-			if (day_selected > february_days)
-				day_selected -= february_days;
-			else if (day_selected < 1)
-				day_selected += february_days;
-			break;
-		case 4:
-		case 6:
-		case 9:
-		case 11:
-			if (day_selected > 30)
-				day_selected -= 30;
-			else if (day_selected < 1)
-				day_selected += 30;
-
-			break;
-		default:
-			if (day_selected > 31)
-				day_selected -= 31;
-			else if (day_selected < 1)
-				day_selected += 31;
-			break;
-		}
-
-		// time
-		if (hour_selected > 23)
-			hour_selected -= 24;
-		else if (hour_selected < 0)
-			hour_selected += 24;
-		if (minute_selected > 59)
-			minute_selected -= 60;
-		else if (minute_selected < 0)
-			minute_selected += 60;
-		if (seconds_selected > 59)
-			seconds_selected -= 60;
-		else if (seconds_selected < 0)
-			seconds_selected += 60;
-	}
-
-	int option_count = 7;
-
+	bool quit = false;
 	bool dirty = true;
 	IndicatorType show_setting = INDICATOR_NONE;
-	while (!quit) {
+
+	while (!quit && !app_quit) {
 		GFX_startFrame();
 		PAD_poll();
 
@@ -228,9 +263,9 @@ int main(int argc, char* argv[]) {
 				select_cursor -= option_count;
 		} else if (PAD_justPressed(BTN_A)) {
 			save_changes = 1;
-			quit = 1;
+			quit = true;
 		} else if (PAD_justPressed(BTN_B)) {
-			quit = 1;
+			quit = true;
 		} else if (PAD_justPressed(BTN_SELECT)) {
 			dirty = true;
 			show_24hour = !show_24hour;
@@ -245,7 +280,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		PWR_update(&dirty, NULL, NULL, NULL);
+		PWR_update(&dirty, &show_setting, NULL, NULL);
 
 		if (UI_statusBarChanged())
 			dirty = true;
@@ -255,7 +290,7 @@ int main(int argc, char* argv[]) {
 
 			GFX_clear(screen);
 
-			GFX_blitHardwareGroup(screen, show_setting);
+			UI_renderMenuBar(screen, "Clock");
 
 			UI_renderButtonHintBar(screen, (char*[]){"B", "CANCEL", "A", "SET", "SELECT", show_24hour ? "12 HOUR" : "24 HOUR", NULL});
 
@@ -278,8 +313,6 @@ int main(int argc, char* argv[]) {
 			if (show_24hour) {
 				x = blitNumber(hour_selected, x, y);
 			} else {
-				// if (select_cursor==CURSOR_HOUR) blitNumber(hour_selected, x,233);
-
 				// 12 hour
 				int hour = hour_selected;
 				if (hour == 0)
@@ -293,7 +326,7 @@ int main(int argc, char* argv[]) {
 			x = blit(CHAR_COLON, x, y);
 			x = blitNumber(seconds_selected, x, y);
 
-			int ampm_w;
+			int ampm_w = 0;
 			if (!show_24hour) {
 				x += SCALE1(10); // space
 				SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, am_selected ? "AM" : "PM", COLOR_WHITE);
@@ -313,8 +346,9 @@ int main(int argc, char* argv[]) {
 
 			GFX_flip(screen);
 			dirty = false;
-		} else
+		} else {
 			GFX_sync();
+		}
 	}
 
 	SDL_FreeSurface(digits);

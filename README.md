@@ -41,7 +41,7 @@ Improvements:
 - Added a semi-transparent progress overlay for all blocking actions
 - Added confirmation dialogs for actions that require them
 - Rewrote the Settings and Updater app in C with a redesigned UI
-- Updated the Battery app with the redesigned UI 
+- Updated the Battery, Clock app with the redesigned UI 
 - Integrated the Remove Loading feature directly into the install script (no separate app required) 
 
 New Features:
