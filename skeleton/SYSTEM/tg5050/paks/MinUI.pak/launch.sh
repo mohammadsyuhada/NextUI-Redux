@@ -23,6 +23,7 @@ export USERDATA_PATH="$SDCARD_PATH/.userdata/$PLATFORM"
 export SHARED_USERDATA_PATH="$SDCARD_PATH/.userdata/shared"
 export LOGS_PATH="$USERDATA_PATH/logs"
 export DATETIME_PATH="$SHARED_USERDATA_PATH/datetime.txt"
+export SHARED_SYSTEM_PATH="$SDCARD_PATH/.system/shared"
 export HOME="$USERDATA_PATH"
 
 #######################################
@@ -88,7 +89,7 @@ echo -n 0 > /sys/class/gpio/gpio236/value
 #######################################
 
 export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:/usr/trimui/lib:$LD_LIBRARY_PATH
-export PATH=$SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
+export PATH=$SYSTEM_PATH/bin:$SHARED_SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
 
 echo before leds `cat /proc/uptime` >> /tmp/nextui_boottime
 

@@ -17,6 +17,8 @@
 #define ROOT_SYSTEM_PATH SDCARD_PATH "/.system/"
 #define SYSTEM_PATH SDCARD_PATH "/.system/" PLATFORM
 #define RES_PATH SDCARD_PATH "/.system/res"
+#define SHARED_SYSTEM_PATH SDCARD_PATH "/.system/shared"
+#define SHARED_BIN_PATH SHARED_SYSTEM_PATH "/bin"
 #define USERDATA_PATH SDCARD_PATH "/.userdata/" PLATFORM
 #define SHARED_USERDATA_PATH SDCARD_PATH "/.userdata/shared"
 #define PAKS_PATH SYSTEM_PATH "/paks"

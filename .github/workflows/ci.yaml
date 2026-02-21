@@ -130,23 +130,17 @@ jobs:
       - name: Package
         run: make package
 
-      - name: Upload All
+      - name: Upload tg5040
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ env.RELEASE_NAME }}-all.zip
-          path: releases/${{ env.RELEASE_NAME }}-all.zip
+          name: ${{ env.RELEASE_NAME }}-tg5040.zip
+          path: releases/${{ env.RELEASE_NAME }}-tg5040.zip
 
-      - name: Upload Base
+      - name: Upload tg5050
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ env.RELEASE_NAME }}-base.zip
-          path: releases/${{ env.RELEASE_NAME }}-base.zip
-
-      - name: Upload Extras
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: ${{ env.RELEASE_NAME }}-extras.zip
-          path: releases/${{ env.RELEASE_NAME }}-extras.zip
+          name: ${{ env.RELEASE_NAME }}-tg5050.zip
+          path: releases/${{ env.RELEASE_NAME }}-tg5050.zip
 
       - name: Skip Attest for PRs from forks
         id: skip
@@ -159,6 +153,5 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           subject-path: |
-            releases/${{ env.RELEASE_NAME }}-all.zip
-            releases/${{ env.RELEASE_NAME }}-base.zip
-            releases/${{ env.RELEASE_NAME }}-extras.zip
+            releases/${{ env.RELEASE_NAME }}-tg5040.zip
+            releases/${{ env.RELEASE_NAME }}-tg5050.zip

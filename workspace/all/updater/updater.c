@@ -104,10 +104,14 @@ static const char* find_json_string(const char* json, const char* key, char* out
 	return out;
 }
 
-// Find the browser_download_url of the first .zip asset in the release JSON
-static const char* find_zip_asset_url(const char* json, char* out, size_t out_size) {
-	if (!json || !out || out_size == 0)
+// Find the browser_download_url of the platform-specific .zip asset in the release JSON
+static const char* find_zip_asset_url(const char* json, const char* platform, char* out, size_t out_size) {
+	if (!json || !platform || !out || out_size == 0)
 		return NULL;
+
+	// Build the suffix we're looking for, e.g. "-tg5040.zip"
+	char suffix[64];
+	snprintf(suffix, sizeof(suffix), "-%s.zip", platform);
 
 	// Look for "assets" array
 	const char* assets = strstr(json, "\"assets\"");
@@ -140,8 +144,9 @@ static const char* find_zip_asset_url(const char* json, char* out, size_t out_si
 			break;
 
 		size_t len = end - pos;
-		// Check if this URL ends with .zip
-		if (len > 4 && strncmp(end - 4, ".zip", 4) == 0) {
+		size_t suf_len = strlen(suffix);
+		// Check if this URL ends with the platform-specific suffix
+		if (len > suf_len && strncmp(end - suf_len, suffix, suf_len) == 0) {
 			if (len >= out_size)
 				len = out_size - 1;
 			strncpy(out, pos, len);
@@ -297,10 +302,10 @@ static void on_release_info(HTTP_Response* response, void* userdata) {
 	extract_first_paragraph(body, latest_release.release_notes,
 							sizeof(latest_release.release_notes));
 
-	// Extract first .zip asset URL
-	if (!find_zip_asset_url(response->data, latest_release.download_url,
+	// Extract platform-specific .zip asset URL
+	if (!find_zip_asset_url(response->data, PLATFORM, latest_release.download_url,
 							sizeof(latest_release.download_url))) {
-		snprintf(error_msg, sizeof(error_msg), "No download found in release");
+		snprintf(error_msg, sizeof(error_msg), "No download found for " PLATFORM);
 		__sync_synchronize();
 		async_success = false;
 		async_done = true;
@@ -378,22 +383,20 @@ static void* extract_thread(void* arg) {
 
 	unlink(DOWNLOAD_PATH);
 
-	// Derive release name from zip filename (e.g. "NextUI-20260212-0-all.zip" -> "NextUI-20260212-0")
+	// Derive release name from zip filename (e.g. "NextUI-20260221-tg5040.zip" -> "NextUI-20260221")
 	char release_name[128] = "Unknown";
 	const char* slash = strrchr(latest_release.download_url, '/');
 	if (slash) {
 		slash++; // skip '/'
 		strncpy(release_name, slash, sizeof(release_name) - 1);
 		release_name[sizeof(release_name) - 1] = '\0';
-		// Strip suffix: -all.zip, -base.zip, -extras.zip
-		const char* suffixes[] = {"-all.zip", "-base.zip", "-extras.zip"};
-		for (int i = 0; i < 3; i++) {
-			size_t name_len = strlen(release_name);
-			size_t suf_len = strlen(suffixes[i]);
-			if (name_len > suf_len && strcmp(release_name + name_len - suf_len, suffixes[i]) == 0) {
-				release_name[name_len - suf_len] = '\0';
-				break;
-			}
+		// Strip platform suffix (e.g. "-tg5040.zip")
+		char suffix[64];
+		snprintf(suffix, sizeof(suffix), "-%s.zip", PLATFORM);
+		size_t name_len = strlen(release_name);
+		size_t suf_len = strlen(suffix);
+		if (name_len > suf_len && strcmp(release_name + name_len - suf_len, suffix) == 0) {
+			release_name[name_len - suf_len] = '\0';
 		}
 	}
 

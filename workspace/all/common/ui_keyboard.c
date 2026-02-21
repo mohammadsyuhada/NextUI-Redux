@@ -15,7 +15,7 @@ void UIKeyboard_init(void) {
 	if (keyboard_initialized)
 		return;
 
-	snprintf(keyboard_path, sizeof(keyboard_path), BIN_PATH "/keyboard");
+	snprintf(keyboard_path, sizeof(keyboard_path), SHARED_BIN_PATH "/keyboard");
 	chmod(keyboard_path, 0755);
 
 	keyboard_initialized = 1;

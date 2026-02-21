@@ -23,6 +23,7 @@ export USERDATA_PATH="$SDCARD_PATH/.userdata/$PLATFORM"
 export SHARED_USERDATA_PATH="$SDCARD_PATH/.userdata/shared"
 export LOGS_PATH="$USERDATA_PATH/logs"
 export DATETIME_PATH="$SHARED_USERDATA_PATH/datetime.txt"
+export SHARED_SYSTEM_PATH="$SDCARD_PATH/.system/shared"
 export HOME="$USERDATA_PATH"
 
 #######################################
@@ -99,7 +100,7 @@ syslogd -S
 #######################################
 
 export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:/usr/trimui/lib:$LD_LIBRARY_PATH
-export PATH=$SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
+export PATH=$SYSTEM_PATH/bin:$SHARED_SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
 
 # leds_off
 echo 0 > /sys/class/led_anim/max_scale

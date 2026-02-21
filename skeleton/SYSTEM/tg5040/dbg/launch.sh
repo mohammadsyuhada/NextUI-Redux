@@ -12,6 +12,7 @@ export USERDATA_PATH="$SDCARD_PATH/.userdata/$PLATFORM"
 export SHARED_USERDATA_PATH="$SDCARD_PATH/.userdata/shared"
 export LOGS_PATH="$USERDATA_PATH/logs"
 export DATETIME_PATH="$SHARED_USERDATA_PATH/datetime.txt"
+export SHARED_SYSTEM_PATH="$SDCARD_PATH/.system/shared"
 
 export TRIMUI_MODEL=`strings /usr/trimui/bin/MainUI | grep ^Trimui`
 if [ "$TRIMUI_MODEL" = "Trimui Brick" ]; then
@@ -21,7 +22,7 @@ fi
 export IS_NEXT="yes"
 
 export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:/usr/trimui/lib:$LD_LIBRARY_PATH
-export PATH=$SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
+export PATH=$SYSTEM_PATH/bin:$SHARED_SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
 
 export HOME=$USERDATA_PATH
 

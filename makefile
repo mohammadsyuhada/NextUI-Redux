@@ -31,9 +31,7 @@ ifeq ($(PLATFORM), desktop)
 else
 	TOOLCHAIN_FILE := makefile.toolchain
 endif
-RELEASE_BASE=NextUI-$(RELEASE_TIME)$(RELEASE_BETA)
-RELEASE_DOT:=$(shell find ./releases/. -regex ".*/${RELEASE_BASE}-[0-9]+-base\.zip" | wc -l | sed 's/ //g')
-RELEASE_NAME ?= $(RELEASE_BASE)-$(RELEASE_DOT)
+RELEASE_NAME ?= NextUI-$(RELEASE_TIME)$(RELEASE_BETA)
 
 # Extra paks to ship
 VENDOR_DEST := ./build/VENDOR/Tools
@@ -47,8 +45,13 @@ PACKAGE_URL_MAPPINGS := \
 
 export MAKEFLAGS=--no-print-directory
 
+ifndef PLATFORM
+deploy:
+	$(error PLATFORM is required for deploy (e.g. make deploy PLATFORM=tg5040))
+else
 deploy: setup $(PLATFORMS) special package
-	adb push ./build/BASE/MinUI.zip /mnt/SDCARD && adb shell reboot
+	adb push ./build/BASE/MinUI-$(PLATFORM).zip /mnt/SDCARD/MinUI.zip && adb shell reboot
+endif
 
 all: setup $(PLATFORMS) special package done
 	
@@ -242,33 +245,24 @@ special:
 #endif
 
 tidy:
-	rm -f releases/$(RELEASE_NAME)-all.zip
+	@for plat in $(PLATFORMS); do \
+		rm -f releases/$(RELEASE_NAME)-$$plat.zip; \
+	done
 	# ----------------------------------------------------
 	# copy update from merged platform to old pre-merge platform bin so old cards update properly
-#ifneq (,$(findstring rg35xxplus, $(PLATFORMS)))
-#	mkdir -p ./build/SYSTEM/rg40xxcube/bin/
-#	cp ./build/SYSTEM/rg35xxplus/bin/install.sh ./build/SYSTEM/rg40xxcube/bin/
-#endif
 
 package: tidy
 	# ----------------------------------------------------
 	# zip up build
-		
+
 	# move formatted readmes from workspace to build
 	cp ./workspace/readmes/BASE-out.txt ./build/BASE/README.txt
 	cp ./workspace/readmes/EXTRAS-out.txt ./build/EXTRAS/README.txt
 	rm -rf ./workspace/readmes
-	
+
 	cd ./build/SYSTEM && printf "%s\n%s\n%s\n" "$(RELEASE_NAME)" "$(BUILD_HASH)" "$(BUILD_TAG)" > version.txt
 	./commits.sh > ./build/SYSTEM/commits.txt
 	cd ./build && find . -type f -name '.DS_Store' -delete
-	mkdir -p ./build/PAYLOAD
-	mv ./build/SYSTEM ./build/PAYLOAD/.system
-	cp -R ./build/BOOT/.tmp_update ./build/PAYLOAD/
-	cp -R ./build/EXTRAS/Tools ./build/PAYLOAD/
-	
-	cd ./build/PAYLOAD && zip -r MinUI.zip .system .tmp_update Tools
-	mv ./build/PAYLOAD/MinUI.zip ./build/BASE
 
 	# Fetch, rename, and stage vendored packages
 	mkdir -p $(VENDOR_DEST)
@@ -282,9 +276,50 @@ package: tidy
 	# Move renamed .pakz files into base folder
 	mkdir -p ./build/BASE
 	mv $(VENDOR_DEST)/* ./build/BASE/
-	
-	cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-all.zip Bios Cheats Collections Favorites Music Overlays "Recently Played" Roms Saves Shaders trimui MinUI.zip *.pakz README.txt
-	cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-all.zip Bios Cheats Emus Roms Saves Overlays Tools README.txt
+
+	# --- Per-platform packaging ---
+	@for plat in $(PLATFORMS); do \
+		echo "# ===== Packaging $$plat ====="; \
+		rm -rf ./build/PAYLOAD-$$plat; \
+		mkdir -p ./build/PAYLOAD-$$plat/.system; \
+		\
+		echo "  assembling .system/$$plat"; \
+		cp -R ./build/SYSTEM/$$plat   ./build/PAYLOAD-$$plat/.system/$$plat; \
+		cp -R ./build/SYSTEM/res      ./build/PAYLOAD-$$plat/.system/res; \
+		cp -R ./build/SYSTEM/shared   ./build/PAYLOAD-$$plat/.system/shared; \
+		cp ./build/SYSTEM/version.txt ./build/PAYLOAD-$$plat/.system/version.txt; \
+		cp ./build/SYSTEM/commits.txt ./build/PAYLOAD-$$plat/.system/commits.txt; \
+		\
+		echo "  assembling .tmp_update"; \
+		cp -R ./build/BOOT/.tmp_update ./build/PAYLOAD-$$plat/.tmp_update; \
+		\
+		echo "  assembling Tools/$$plat"; \
+		mkdir -p ./build/PAYLOAD-$$plat/Tools; \
+		cp -R ./build/EXTRAS/Tools/$$plat ./build/PAYLOAD-$$plat/Tools/$$plat; \
+		\
+		echo "  creating MinUI.zip"; \
+		cd ./build/PAYLOAD-$$plat && zip -r MinUI.zip .system .tmp_update Tools && cd ../..; \
+		cp ./build/PAYLOAD-$$plat/MinUI.zip ./build/BASE/MinUI-$$plat.zip; \
+		\
+		echo "  creating release zip"; \
+		cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
+			Bios Cheats Collections Favorites Music Overlays \
+			"Recently Played" Roms Saves Shaders trimui *.pakz README.txt \
+			&& cd ../..; \
+		cd ./build/PAYLOAD-$$plat && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip MinUI.zip && cd ../..; \
+		cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
+			Bios Cheats Roms Saves Overlays README.txt \
+			&& cd ../..; \
+		cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
+			Emus/$$plat Tools/$$plat \
+			&& cd ../..; \
+		if [ -d ./build/PAKZ/$$plat ]; then \
+			cd ./build/PAKZ/$$plat && zip -r ../../../releases/$(RELEASE_NAME)-$$plat.zip *.pakz && cd ../../..; \
+		fi; \
+		\
+		rm -rf ./build/PAYLOAD-$$plat; \
+		echo "# ===== Done: $$plat ====="; \
+	done
 	
 ###########################################################
 

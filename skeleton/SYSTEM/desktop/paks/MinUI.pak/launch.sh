@@ -19,6 +19,7 @@ export USERDATA_PATH="$SDCARD_PATH/.userdata/$PLATFORM"
 export SHARED_USERDATA_PATH="$SDCARD_PATH/.userdata/shared"
 export LOGS_PATH="$USERDATA_PATH/logs"
 export DATETIME_PATH="$SHARED_USERDATA_PATH/datetime.txt"
+export SHARED_SYSTEM_PATH="$SDCARD_PATH/.system/shared"
 
 mkdir -p "$BIOS_PATH"
 mkdir -p "$ROMS_PATH"
@@ -34,7 +35,7 @@ export IS_NEXT="yes"
 
 export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:$LD_LIBRARY_PATH
 export DYLD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DYLD_LIBRARY_PATH
-export PATH=$SYSTEM_PATH/bin:$PATH
+export PATH=$SYSTEM_PATH/bin:$SHARED_SYSTEM_PATH/bin:$PATH
 
 #batmon.elf & # &> $SDCARD_PATH/batmon.txt &
 

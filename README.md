@@ -44,6 +44,7 @@ Improvements:
 - Updated the `Battery`, `Clock`, and `Input` app with the redesigned UI 
 - Integrated the `Remove Loading` feature directly into the install script (no separate app required) 
 - Moved the `LED Control` configurations into `Settings` app (no separate app required)
+- Split release builds into per-platform zips (tg5040/tg5050) 
 
 New Features:
 - Redesigned UI with consistent styling across the system.
