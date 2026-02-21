@@ -444,7 +444,7 @@ static void render_text_centered(SDL_Surface* screen, const char* text, TTF_Font
 	}
 }
 
-static void render_state(SDL_Surface* screen, int show_setting) {
+static void render_state(SDL_Surface* screen, IndicatorType show_setting) {
 	GFX_clear(screen);
 
 	int bar_h = SCALE1(BUTTON_SIZE) + SCALE1(BUTTON_MARGIN * 2);

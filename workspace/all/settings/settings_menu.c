@@ -510,7 +510,7 @@ static void render_hints_for_page(SDL_Surface* screen, SettingsPage* page) {
 // Main Render
 // ============================================
 
-void settings_menu_render(SDL_Surface* screen, int show_setting) {
+void settings_menu_render(SDL_Surface* screen, IndicatorType show_setting) {
 	SettingsPage* page = settings_menu_current();
 	if (!page)
 		return;

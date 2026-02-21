@@ -75,6 +75,10 @@ echo after cpugov `cat /proc/uptime` >> /tmp/nextui_boottime
 # leds_off
 echo 0 > /sys/class/led_anim/max_scale
 
+# Disable SSH by default (security hardening)
+/etc/init.d/sshd stop > /dev/null 2>&1
+/etc/init.d/sshd disable > /dev/null 2>&1
+
 echo before pkg install `cat /proc/uptime` >> /tmp/nextui_boottime
 
 # generic NextUI package install

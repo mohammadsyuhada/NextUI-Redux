@@ -14,6 +14,7 @@
 #include "settings_wifi.h"
 #include "settings_bt.h"
 #include "settings_led.h"
+#include "settings_developer.h"
 #include "ui_components.h"
 
 #include <stdio.h>
@@ -29,13 +30,6 @@
 // ============================================
 // Device detection
 // ============================================
-
-typedef enum {
-	PLAT_UNKNOWN = 0,
-	PLAT_TG5040,
-	PLAT_TG5050,
-	PLAT_MY355
-} DevicePlatform;
 
 typedef enum {
 	MODEL_UNKNOWN = 0,
@@ -1265,7 +1259,7 @@ static void init_about_info(void) {
 			char date_raw[9] = {0};
 			strncpy(date_raw, dash + 1, 8);
 			snprintf(about_release_date, sizeof(about_release_date),
-				"%.4s-%.2s-%.2s (%s)", date_raw, date_raw + 4, date_raw + 6, build_hash);
+					 "%.4s-%.2s-%.2s (%s)", date_raw, date_raw + 4, date_raw + 6, build_hash);
 		} else {
 			snprintf(about_release_date, sizeof(about_release_date), "%s (%s)", release_name, build_hash);
 		}
@@ -1302,7 +1296,7 @@ static void init_about_info(void) {
 #define MAX_NOTIFY_ITEMS 8
 #define MAX_RA_ITEMS 15
 #define MAX_ABOUT_ITEMS 8
-#define MAX_MAIN_ITEMS 12
+#define MAX_MAIN_ITEMS 13
 
 static SettingItem appearance_items[MAX_APPEARANCE_ITEMS];
 static SettingItem display_items[MAX_DISPLAY_ITEMS];
@@ -1327,6 +1321,7 @@ static SettingsPage main_page;
 static SettingsPage* wifi_page_ptr = NULL;
 static SettingsPage* bt_page_ptr = NULL;
 static SettingsPage* led_page_ptr = NULL;
+static SettingsPage* dev_page_ptr = NULL;
 
 // ============================================
 // Reset button callbacks (reference pages)
@@ -1727,6 +1722,12 @@ static void build_menu_tree(const DeviceInfo* dev) {
 		}
 	}
 
+	dev_page_ptr = developer_page_create(dev->platform);
+	if (dev_page_ptr) {
+		main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
+			"Developer", "Developer & debugging tools", dev_page_ptr);
+	}
+
 	main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
 		"About", "", &about_page);
 
@@ -1785,6 +1786,8 @@ int main(int argc, char* argv[]) {
 		wifi_page_ptr->screen = screen;
 	if (bt_page_ptr)
 		bt_page_ptr->screen = screen;
+	if (dev_page_ptr)
+		dev_page_ptr->screen = screen;
 
 	settings_menu_init();
 	settings_menu_push(&main_page);
@@ -1827,6 +1830,8 @@ int main(int argc, char* argv[]) {
 		wifi_page_destroy(wifi_page_ptr);
 	if (bt_page_ptr)
 		bt_page_destroy(bt_page_ptr);
+	if (dev_page_ptr)
+		developer_page_destroy(dev_page_ptr);
 	free_dynamic_labels();
 
 	QuitSettings();

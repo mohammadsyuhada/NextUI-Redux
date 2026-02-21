@@ -60,10 +60,41 @@ static void qm_toggle_with_overlay(void (*fn)(bool), int enable, const char* tit
 		SDL_FreeSurface(bg);
 }
 
+#define MENU_ITEM_SIZE 72	 // item size, top line
+#define MENU_MARGIN_Y 32	 // space between main UI elements and quick menu
+#define MENU_MARGIN_X 40	 // space between main UI elements and quick menu
+#define MENU_ITEM_MARGIN 18	 // space between items, top line
+#define MENU_TOGGLE_MARGIN 8 // space between items, bottom line
+#define MENU_LINE_MARGIN 8	 // space between top and bottom line
+
 typedef enum {
 	QM_ROW_ITEMS = 0,
 	QM_ROW_TOGGLES = 1,
+	QM_ROW_DEVMODE = 2,
 } QuickMenuRow;
+
+// Cached state (refreshed on events, not every frame)
+static bool qm_cache_devmode = false;
+static bool qm_cache_wifi_connected = false;
+static char qm_cache_wifi_ip[32] = {0};
+
+static void qm_refresh_devmode(void) {
+	bool ssh_running = system("pidof sshd > /dev/null 2>&1") == 0;
+	qm_cache_devmode = CFG_getDisableSleep() || ssh_running;
+}
+
+static void qm_refresh_wifi(void) {
+	if (WIFI_enabled() && WIFI_connected()) {
+		qm_cache_wifi_connected = true;
+		struct WIFI_connection conn;
+		WIFI_connectionInfo(&conn);
+		strncpy(qm_cache_wifi_ip, conn.ip, sizeof(qm_cache_wifi_ip) - 1);
+		qm_cache_wifi_ip[sizeof(qm_cache_wifi_ip) - 1] = '\0';
+	} else {
+		qm_cache_wifi_connected = false;
+		qm_cache_wifi_ip[0] = '\0';
+	}
+}
 
 static QuickMenuRow qm_row = QM_ROW_ITEMS;
 static int qm_col = 0;
@@ -71,6 +102,7 @@ static int qm_slot = 0;
 static int qm_shift = 0;
 static int qm_slots = 0;
 static bool qm_connect_active = false;
+
 
 void QuickMenu_init(int simple_mode) {
 	quick = getQuickEntries(simple_mode);
@@ -101,6 +133,7 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 		if (cr.action != CONNECT_NONE) {
 			ConnectDialog_quit();
 			qm_connect_active = false;
+			qm_refresh_wifi();
 		}
 		result.dirty = true;
 		return result;
@@ -113,37 +146,47 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 		result.folderbgchanged = true;
 		result.dirty = true;
 	} else if (PAD_justReleased(BTN_A)) {
-		Entry* selected =
-			qm_row == QM_ROW_ITEMS ? quick->items[qm_col] : quickActions->items[qm_col];
-
-		// WiFi/BT toggles: use blocking overlay instead of direct toggle
-		if (selected->type == ENTRY_DIP && selected->quickId == QUICK_WIFI) {
-			int enabling = !WIFI_enabled();
-			qm_toggle_with_overlay(WIFI_enable,
-								   enabling, enabling ? "Enabling WiFi..." : "Disabling WiFi...");
-			result.dirty = true;
-		} else if (selected->type == ENTRY_DIP && selected->quickId == QUICK_BLUETOOTH) {
-			int enabling = !BT_enabled();
-			qm_toggle_with_overlay(BT_enable,
-								   enabling, enabling ? "Enabling Bluetooth..." : "Disabling Bluetooth...");
+		if (qm_row == QM_ROW_DEVMODE) {
+			CFG_setDisableSleep(false);
+			system("/etc/init.d/sshd stop > /dev/null 2>&1 &");
+			qm_cache_devmode = false;
+			qm_row = QM_ROW_TOGGLES;
+			qm_col = 0;
 			result.dirty = true;
 		} else {
-			if (selected->type != ENTRY_DIP) {
-				result.screen = SCREEN_GAMELIST;
-				// prevent restoring list state, game list screen currently isnt our
-				// nav origin
-				top->selected = 0;
-				top->start = 0;
-				int qm_rc = MAIN_ROW_COUNT - 1;
-				top->end = top->start + qm_rc;
-				restore.depth = -1;
-				restore.relative = -1;
-				restore.selected = 0;
-				restore.start = 0;
-				restore.end = 0;
+			Entry* selected =
+				qm_row == QM_ROW_ITEMS ? quick->items[qm_col] : quickActions->items[qm_col];
+
+			// WiFi/BT toggles: use blocking overlay instead of direct toggle
+			if (selected->type == ENTRY_DIP && selected->quickId == QUICK_WIFI) {
+				int enabling = !WIFI_enabled();
+				qm_toggle_with_overlay(WIFI_enable,
+									   enabling, enabling ? "Enabling WiFi..." : "Disabling WiFi...");
+				qm_refresh_wifi();
+				result.dirty = true;
+			} else if (selected->type == ENTRY_DIP && selected->quickId == QUICK_BLUETOOTH) {
+				int enabling = !BT_enabled();
+				qm_toggle_with_overlay(BT_enable,
+									   enabling, enabling ? "Enabling Bluetooth..." : "Disabling Bluetooth...");
+				result.dirty = true;
+			} else {
+				if (selected->type != ENTRY_DIP) {
+					result.screen = SCREEN_GAMELIST;
+					// prevent restoring list state, game list screen currently isnt our
+					// nav origin
+					top->selected = 0;
+					top->start = 0;
+					int qm_rc = MAIN_ROW_COUNT - 1;
+					top->end = top->start + qm_rc;
+					restore.depth = -1;
+					restore.relative = -1;
+					restore.selected = 0;
+					restore.start = 0;
+					restore.end = 0;
+				}
+				Entry_open(selected);
+				result.dirty = true;
 			}
-			Entry_open(selected);
-			result.dirty = true;
 		}
 	} else if (PAD_justPressed(BTN_X)) {
 		Entry* xselected =
@@ -163,7 +206,7 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 			qm_connect_active = true;
 			result.dirty = true;
 		}
-	} else if (PAD_justPressed(BTN_RIGHT)) {
+	} else if (PAD_justPressed(BTN_RIGHT) && qm_row != QM_ROW_DEVMODE) {
 		if (qm_row == QM_ROW_ITEMS && qm_total > qm_slots) {
 			qm_col++;
 			if (qm_col >= qm_total) {
@@ -184,7 +227,7 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 			}
 		}
 		result.dirty = true;
-	} else if (PAD_justPressed(BTN_LEFT)) {
+	} else if (PAD_justPressed(BTN_LEFT) && qm_row != QM_ROW_DEVMODE) {
 		if (qm_row == QM_ROW_ITEMS && qm_total > qm_slots) {
 			qm_col -= 1;
 			if (qm_col < 0) {
@@ -210,9 +253,17 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 			qm_row = QM_ROW_TOGGLES;
 			qm_col = 0;
 			result.dirty = true;
+		} else if (qm_row == QM_ROW_TOGGLES && qm_cache_devmode) {
+			qm_row = QM_ROW_DEVMODE;
+			qm_col = 0;
+			result.dirty = true;
 		}
 	} else if (PAD_justPressed(BTN_UP)) {
-		if (qm_row == QM_ROW_TOGGLES) {
+		if (qm_row == QM_ROW_DEVMODE) {
+			qm_row = QM_ROW_TOGGLES;
+			qm_col = 0;
+			result.dirty = true;
+		} else if (qm_row == QM_ROW_TOGGLES) {
 			qm_row = QM_ROW_ITEMS;
 			qm_col = qm_slot + qm_shift;
 			result.dirty = true;
@@ -222,7 +273,7 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 	return result;
 }
 
-void QuickMenu_render(int lastScreen, int show_setting, int ow,
+void QuickMenu_render(int lastScreen, IndicatorType show_setting, int ow,
 					  char* folderBgPath, size_t folderBgPathSize) {
 	if (qm_connect_active) {
 		ConnectDialog_render(screen);
@@ -232,10 +283,13 @@ void QuickMenu_render(int lastScreen, int show_setting, int ow,
 	if (lastScreen != SCREEN_QUICKMENU) {
 		GFX_clearLayers(LAYER_BACKGROUND);
 		GFX_clearLayers(LAYER_THUMBNAIL);
+		qm_refresh_wifi();
+		qm_refresh_devmode();
 	}
 
 	Entry* current =
-		qm_row == QM_ROW_ITEMS ? quick->items[qm_col] : quickActions->items[qm_col];
+		qm_row == QM_ROW_ITEMS ? quick->items[qm_col] : qm_row == QM_ROW_TOGGLES ? quickActions->items[qm_col]
+																				 : quickActions->items[0];
 	char newBgPath[MAX_PATH];
 	char fallbackBgPath[MAX_PATH];
 	bool show_off =
@@ -255,23 +309,41 @@ void QuickMenu_render(int lastScreen, int show_setting, int ow,
 		startLoadFolderBackground(newBgPath, onBackgroundLoaded);
 	}
 
-	// Button hints: show X=CONNECT when WiFi/BT toggle is focused
-	bool show_connect_hint = (qm_row == QM_ROW_TOGGLES && current &&
-							  (current->quickId == QUICK_WIFI || current->quickId == QUICK_BLUETOOTH));
+	// Button hints
+	bool is_toggle = (qm_row == QM_ROW_TOGGLES &&
+					  (current->quickId == QUICK_WIFI || current->quickId == QUICK_BLUETOOTH));
+	char* hints[9];
+	int hi = 0;
+	hints[hi++] = "B";
+	hints[hi++] = "BACK";
+	hints[hi++] = "A";
+	hints[hi++] = qm_row == QM_ROW_DEVMODE ? "TURN OFF" : is_toggle ? "TOGGLE"
+																	: "OPEN";
+	if (is_toggle) {
+		hints[hi++] = "X";
+		hints[hi++] = "CONNECT";
+	}
+	hints[hi] = NULL;
+	UI_renderButtonHintBar(screen, hints);
 
-	if (show_connect_hint)
-		UI_renderButtonHintBar(screen, (char*[]){"B", "BACK", "A", "TOGGLE", "X", "CONNECT", NULL});
-	else
-		UI_renderButtonHintBar(screen, (char*[]){"B", "BACK", "A", "OPEN", NULL});
+	// Render WiFi IP as right-aligned text in the hint bar
+	if (is_toggle && current->quickId == QUICK_WIFI &&
+		qm_cache_wifi_connected && qm_cache_wifi_ip[0] != '\0' &&
+		show_setting == INDICATOR_NONE) {
+		int btn_sz = SCALE1(BUTTON_SIZE);
+		int bar_h = btn_sz + SCALE1(BUTTON_MARGIN * 2);
+		int bar_y = screen->h - bar_h;
+		SDL_Surface* ip_text = TTF_RenderUTF8_Blended(font.tiny, qm_cache_wifi_ip,
+													  uintToColour(THEME_COLOR6_255));
+		if (ip_text) {
+			int ix = screen->w - ip_text->w - SCALE1(PADDING + BUTTON_MARGIN);
+			int iy = bar_y + (bar_h - ip_text->h) / 2;
+			SDL_BlitSurface(ip_text, NULL, screen, &(SDL_Rect){ix, iy});
+			SDL_FreeSurface(ip_text);
+		}
+	}
 
 	if (CFG_getShowQuickswitcherUI()) {
-#define MENU_ITEM_SIZE 72	 // item size, top line
-#define MENU_MARGIN_Y 32	 // space between main UI elements and quick menu
-#define MENU_MARGIN_X 40	 // space between main UI elements and quick menu
-#define MENU_ITEM_MARGIN 18	 // space between items, top line
-#define MENU_TOGGLE_MARGIN 8 // space between items, bottom line
-#define MENU_LINE_MARGIN 8	 // space between top and bottom line
-
 		int item_space_y =
 			screen->h -
 			SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + // top pill area
@@ -406,6 +478,28 @@ void QuickMenu_render(int lastScreen, int show_setting, int ow,
 							   icon_color);
 
 			ox += item_rect.w + SCALE1(MENU_TOGGLE_MARGIN);
+		}
+
+		// Developer mode button - between toggles and hint bar
+		if (qm_cache_devmode) {
+			SDL_Color txt_color = qm_row == QM_ROW_DEVMODE ? uintToColour(THEME_COLOR5_255) : uintToColour(THEME_COLOR4_255);
+			SDL_Surface* dev_text = TTF_RenderUTF8_Blended(font.micro,
+														   "TURN OFF DEVELOPER MODE", txt_color);
+			if (dev_text) {
+				int btn_pad = SCALE1(PADDING * 3);
+				int btn_w = dev_text->w + btn_pad * 2;
+				int btn_h = dev_text->h + SCALE1(BUTTON_MARGIN * 2);
+				int bx = (screen->w - btn_w) / 2;
+				int by = oy + SCALE1(PILL_SIZE + BUTTON_MARGIN);
+
+				SDL_Color fill = uintToColour(qm_row == QM_ROW_DEVMODE ? THEME_COLOR1_255 : THEME_COLOR3_255);
+				SDL_Rect btn_rect = {bx, by, btn_w, btn_h};
+				SDL_FillRect(screen, &btn_rect,
+							 SDL_MapRGB(screen->format, fill.r, fill.g, fill.b));
+
+				SDL_BlitSurface(dev_text, NULL, screen, &(SDL_Rect){bx + (btn_w - dev_text->w) / 2, by + (btn_h - dev_text->h) / 2});
+				SDL_FreeSurface(dev_text);
+			}
 		}
 	}
 }

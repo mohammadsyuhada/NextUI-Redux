@@ -144,6 +144,12 @@ else
 	/etc/wifi/wifi_init.sh start > /dev/null 2>&1 &
 fi
 
+# SSH handling - developer setting
+sshonboot=$(nextval.elf sshOnBoot | sed -n 's/.*"sshOnBoot": \([0-9]*\).*/\1/p')
+if [ "$sshonboot" -eq 1 ]; then
+	/etc/init.d/sshd start > /dev/null 2>&1 &
+fi
+
 #######################################
 
 AUTO_PATH=$USERDATA_PATH/auto.sh

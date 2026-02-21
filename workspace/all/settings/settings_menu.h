@@ -4,10 +4,22 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include "sdl.h"
+#include "api.h"
 
 // Forward declarations
 struct SettingItem;
 struct SettingsPage;
+
+// ============================================
+// Device Platform (shared across settings modules)
+// ============================================
+
+typedef enum {
+	PLAT_UNKNOWN = 0,
+	PLAT_TG5040,
+	PLAT_TG5050,
+	PLAT_MY355
+} DevicePlatform;
 
 // ============================================
 // Item Types
@@ -105,7 +117,7 @@ int settings_menu_depth(void);
 void settings_menu_handle_input(bool* quit, bool* dirty);
 
 // Render the current page
-void settings_menu_render(SDL_Surface* screen, int show_setting);
+void settings_menu_render(SDL_Surface* screen, IndicatorType show_setting);
 
 // Sync a CYCLE item's current_idx from its get_value callback
 void settings_item_sync(SettingItem* item);

@@ -42,5 +42,8 @@ audiomon.elf
 
 workspace/hash.txt
 workspace/readmes
+workspace/nextui-music-player
+workspace/nextui-video-player
+workspace/nextui-netplay
 compile_commands.json
 BUILD.md

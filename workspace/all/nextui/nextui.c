@@ -165,7 +165,7 @@ static void resolveAndLoadBackground(Entry* entry, const char* rompath,
 }
 
 static int GameList_handleInput(unsigned long now, int currentScreen,
-								int show_setting) {
+								IndicatorType show_setting) {
 	int selected = top->selected;
 	int total = top->entries->count;
 	int row_count = MAIN_ROW_COUNT - 1;

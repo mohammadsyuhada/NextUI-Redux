@@ -149,6 +149,10 @@ typedef struct
 	int raProgressNotificationDuration; // Duration for progress notifications (0-5 seconds, 0 = disabled)
 	int raAchievementSortOrder;			// Sort order for achievements list (RA_SORT_* enum)
 
+	// Developer
+	bool disableSleep;
+	bool sshOnBoot;
+
 } NextUISettings;
 
 #define CFG_DEFAULT_FONT_ID 1 // Next
@@ -209,6 +213,10 @@ typedef struct
 #define CFG_DEFAULT_RA_NOTIFICATION_DURATION 3
 #define CFG_DEFAULT_RA_PROGRESS_NOTIFICATION_DURATION 1
 #define CFG_DEFAULT_RA_ACHIEVEMENT_SORT_ORDER RA_SORT_UNLOCKED_FIRST
+
+// Developer defaults
+#define CFG_DEFAULT_DISABLE_SLEEP false
+#define CFG_DEFAULT_SSH_ON_BOOT false
 
 void CFG_init(FontLoad_callback_t fontCallback, ColorSet_callback_t ccb);
 void CFG_print(void);
@@ -358,6 +366,12 @@ int CFG_getRAProgressNotificationDuration(void);
 void CFG_setRAProgressNotificationDuration(int seconds);
 int CFG_getRAAchievementSortOrder(void);
 void CFG_setRAAchievementSortOrder(int sortOrder);
+
+// Developer settings
+bool CFG_getDisableSleep(void);
+void CFG_setDisableSleep(bool disable);
+bool CFG_getSSHOnBoot(void);
+void CFG_setSSHOnBoot(bool enable);
 
 void CFG_sync(void);
 void CFG_quit(void);

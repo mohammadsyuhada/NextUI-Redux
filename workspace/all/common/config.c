@@ -90,6 +90,9 @@ void CFG_defaults(NextUISettings* cfg) {
 		.raNotificationDuration = CFG_DEFAULT_RA_NOTIFICATION_DURATION,
 		.raProgressNotificationDuration = CFG_DEFAULT_RA_PROGRESS_NOTIFICATION_DURATION,
 		.raAchievementSortOrder = CFG_DEFAULT_RA_ACHIEVEMENT_SORT_ORDER,
+
+		.disableSleep = CFG_DEFAULT_DISABLE_SLEEP,
+		.sshOnBoot = CFG_DEFAULT_SSH_ON_BOOT,
 	};
 
 	*cfg = defaults;
@@ -336,6 +339,14 @@ void CFG_init(FontLoad_callback_t cb, ColorSet_callback_t ccb) {
 				CFG_setRAAchievementSortOrder(temp_value);
 				continue;
 			}
+			if (sscanf(line, "disableSleep=%i", &temp_value) == 1) {
+				CFG_setDisableSleep((bool)temp_value);
+				continue;
+			}
+			if (sscanf(line, "sshOnBoot=%i", &temp_value) == 1) {
+				CFG_setSSHOnBoot((bool)temp_value);
+				continue;
+			}
 		}
 		fclose(file);
 	}
@@ -448,6 +459,8 @@ void CFG_setScreenTimeoutSecs(uint32_t secs) {
 }
 
 uint32_t CFG_getSuspendTimeoutSecs(void) {
+	if (settings.disableSleep)
+		return 0;
 	return settings.suspendTimeoutSecs;
 }
 
@@ -858,6 +871,24 @@ void CFG_setRAAchievementSortOrder(int sortOrder) {
 	CFG_sync();
 }
 
+bool CFG_getDisableSleep(void) {
+	return settings.disableSleep;
+}
+
+void CFG_setDisableSleep(bool disable) {
+	settings.disableSleep = disable;
+	CFG_sync();
+}
+
+bool CFG_getSSHOnBoot(void) {
+	return settings.sshOnBoot;
+}
+
+void CFG_setSSHOnBoot(bool enable) {
+	settings.sshOnBoot = enable;
+	CFG_sync();
+}
+
 void CFG_get(const char* key, char* value) {
 	if (strcmp(key, "font") == 0) {
 		sprintf(value, "%i", CFG_getFontId());
@@ -935,6 +966,10 @@ void CFG_get(const char* key, char* value) {
 		sprintf(value, "%i", (int)(CFG_getNTP()));
 	} else if (strcmp(key, "currentTimezone") == 0) {
 		sprintf(value, "%i", CFG_getCurrentTimezone());
+	} else if (strcmp(key, "disableSleep") == 0) {
+		sprintf(value, "%i", (int)(CFG_getDisableSleep()));
+	} else if (strcmp(key, "sshOnBoot") == 0) {
+		sprintf(value, "%i", (int)(CFG_getSSHOnBoot()));
 	}
 
 	// meta, not a real setting
@@ -1020,6 +1055,8 @@ void CFG_sync(void) {
 	fprintf(file, "raNotificationDuration=%i\n", settings.raNotificationDuration);
 	fprintf(file, "raProgressNotificationDuration=%i\n", settings.raProgressNotificationDuration);
 	fprintf(file, "raAchievementSortOrder=%i\n", settings.raAchievementSortOrder);
+	fprintf(file, "disableSleep=%i\n", settings.disableSleep);
+	fprintf(file, "sshOnBoot=%i\n", settings.sshOnBoot);
 
 	fclose(file);
 }
@@ -1065,6 +1102,8 @@ void CFG_print(void) {
 	printf("\t\"btMaxRate\": %i,\n", settings.bluetoothSamplerateLimit);
 	printf("\t\"ntp\": %i,\n", settings.ntp);
 	printf("\t\"currentTimezone\": %i,\n", settings.currentTimezone);
+	printf("\t\"disableSleep\": %i,\n", settings.disableSleep);
+	printf("\t\"sshOnBoot\": %i,\n", settings.sshOnBoot);
 
 	// meta, not a real setting
 	if (settings.font == 1)

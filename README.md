@@ -48,8 +48,14 @@ Improvements:
 New Features:
 - Redesigned UI with consistent styling across the system.
 - Game art fallback for titles without save states in the game switcher
-- Main menu shortcut for quick access to frequently used Tools/Games
+- Main menu shortcut for quick access to frequently used Tools and Games
 - Direct selection of Wi-Fi networks and Bluetooth devices from the quick menu
+    - IP address is displayed in the bottom button hint bar when connected
+- Added developer options in `Settings`
+    - Toggle SSH service and autostart
+    - Disable system sleep (useful for ADB)
+    - Clean up macOS-specific dotfiles (if any were copied)
+    - Quickly turn off Developer Mode from the quick menu
 
 Upcoming Features:
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)

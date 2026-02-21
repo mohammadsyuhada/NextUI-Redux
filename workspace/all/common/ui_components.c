@@ -84,7 +84,7 @@ void UI_renderCenteredMessage(SDL_Surface* dst, const char* message) {
 }
 
 int UI_renderButtonHintBar(SDL_Surface* dst, char** pairs) {
-	int show_setting = PWR_getShowSetting();
+	IndicatorType show_setting = PWR_getShowSetting();
 	char** hw_pairs = show_setting ? GFX_getHardwareHintPairs(show_setting) : NULL;
 
 	struct Hint {

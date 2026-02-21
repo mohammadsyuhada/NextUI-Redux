@@ -64,6 +64,10 @@ fi
 # leds_off
 echo 0 > /sys/class/led_anim/max_scale
 
+# Disable SSH by default (security hardening)
+/etc/init.d/sshd stop > /dev/null 2>&1
+/etc/init.d/sshd disable > /dev/null 2>&1
+
 # generic NextUI package install
 for pakz in $PAKZ_PATH; do
 	if [ ! -e "$pakz" ]; then continue; fi
