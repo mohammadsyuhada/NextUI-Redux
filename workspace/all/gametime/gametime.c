@@ -1,4 +1,3 @@
-// heavily modified from the Onion original: https://github.com/OnionUI/Onion/blob/main/src/playActivity/playActivityUI.c
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -27,8 +26,8 @@ struct ListLayout {
 } layout = {0};
 
 
-#define BIG_PILL_SIZE 48
-#define IMG_MARGIN 8
+#define BIG_PILL_SIZE 40
+#define IMG_MARGIN 6
 #define IMG_MAX_WIDTH BIG_PILL_SIZE - IMG_MARGIN
 #define IMG_MAX_HEIGHT BIG_PILL_SIZE - IMG_MARGIN
 
@@ -154,7 +153,7 @@ SDL_Surface* loadRomImage(char* image_path) {
 	SDL_PixelFormat* ft = img->format;
 	SDL_Surface* dst = SDL_CreateRGBSurface(0, SCALE1(IMG_MAX_WIDTH), SCALE1(IMG_MAX_HEIGHT), ft->BitsPerPixel, ft->Rmask, ft->Gmask, ft->Bmask, ft->Amask);
 	SDL_Rect imgRect = GFX_blitScaled(GFX_SCALE_FILL, img, dst);
-	GFX_ApplyRoundedCorners(dst, &imgRect, SCALE1(18));
+	GFX_ApplyRoundedCorners(dst, &imgRect, SCALE1(16));
 	SDL_FreeSurface(img);
 
 	return dst;
@@ -202,7 +201,7 @@ void renderList(int count, int start, int end, int selected) {
 								   layout.list_display_start_y + row * elemHeight,
 								   layout.list_display_size_x,
 								   elemHeight},
-							   isSelected ? RGB_WHITE : RGB_BLACK, SCALE1(24));
+							   isSelected ? RGB_WHITE : RGB_BLACK, SCALE1(BIG_PILL_SIZE / 2));
 
 		SDL_Surface* romImage = romImages[index];
 		if (romImage) {
@@ -219,7 +218,7 @@ void renderList(int count, int start, int end, int selected) {
 				SCALE1(IMG_MAX_WIDTH),
 				SCALE1(IMG_MAX_HEIGHT)};
 
-			renderRoundedRectangle(rectRomImage, RGB_DARK_GRAY, SCALE1(18));
+			renderRoundedRectangle(rectRomImage, RGB_DARK_GRAY, SCALE1(16));
 
 			// TODO: no getter exposed for this right now
 			//SDL_Rect rect = asset_rects[ASSET_GAMEPAD];
@@ -247,7 +246,7 @@ void renderList(int count, int start, int end, int selected) {
 		const char* details[] = {"TOTAL ", total, "  AVERAGE ", average, "  # PLAYS ", plays};
 		SDL_Rect detailsRect = {
 			layout.list_display_start_x + num_width + thumbMargin + SCALE1(IMG_MAX_WIDTH),
-			layout.list_display_start_y + thumbMargin + textHeight + elemHeight * row,
+			layout.list_display_start_y + thumbMargin / 2 + textHeight + elemHeight * row,
 			layout.list_display_size_x,
 			textHeight};
 		for (int i = 0; i < 6; i++) {
@@ -299,11 +298,13 @@ void initLayout() {
 }
 
 int main(int argc, char* argv[]) {
-	InitSettings();
-
-	PWR_setCPUSpeed(CPU_SPEED_MENU);
+	(void)argc;
+	(void)argv;
 
 	screen = GFX_init(MODE_MAIN);
+	UI_showSplashScreen(screen, "Game Time");
+
+	InitSettings();
 	PAD_init();
 	PWR_init();
 
@@ -326,65 +327,47 @@ int main(int argc, char* argv[]) {
 		GFX_startFrame();
 		PAD_poll();
 
-		// This might be too harsh, but ignore all combos with MENU (most likely a shortcut for someone else)
-		if (PAD_justPressed(BTN_MENU)) {
-			// ?
-		} else {
-			if (PAD_justRepeated(BTN_UP)) {
-				selected -= 1;
-				if (selected < 0) {
-					selected = count - 1;
-					start = MAX(0, count - layout.items_per_page);
-					end = count;
-				} else if (selected < start) {
-					start -= 1;
-					end -= 1;
-				}
-				dirty = true;
-			} else if (PAD_justRepeated(BTN_DOWN)) {
-				selected += 1;
-				if (selected >= count) {
-					selected = 0;
-					start = 0;
-					end = visible_rows;
-				} else if (selected >= end) {
-					start += 1;
-					end += 1;
-				}
-				dirty = true;
-			} else if (PAD_justPressed(BTN_B)) {
-				app_quit = true;
+		if (PAD_justRepeated(BTN_UP)) {
+			selected -= 1;
+			if (selected < 0) {
+				selected = count - 1;
+				start = MAX(0, count - layout.items_per_page);
+				end = count;
+			} else if (selected < start) {
+				start -= 1;
+				end -= 1;
 			}
+			dirty = true;
+		} else if (PAD_justRepeated(BTN_DOWN)) {
+			selected += 1;
+			if (selected >= count) {
+				selected = 0;
+				start = 0;
+				end = visible_rows;
+			} else if (selected >= end) {
+				start += 1;
+				end += 1;
+			}
+			dirty = true;
+		} else if (PAD_justPressed(BTN_B)) {
+			app_quit = true;
 		}
 
+
 		PWR_update(&dirty, &show_setting, NULL, NULL);
+
+		if (UI_statusBarChanged())
+			dirty = true;
 
 		if (dirty) {
 			GFX_clear(screen);
 
-			// title pill
 			{
-				int max_width = screen->w - SCALE1(PADDING * 2);
-				if (screen->w >= SCALE1(320)) {
-					int ow = GFX_blitHardwareGroup(screen, show_setting);
-					max_width = screen->w - SCALE1(PADDING * 2) - ow;
-				}
-
-				int play_time_total = play_activities->play_time_total;
 				char play_time_total_formatted[255];
-				serializeTime(play_time_total_formatted, play_time_total);
-				char display_name[256];
-				sprintf(display_name, "Time spent having fun: %s", play_time_total_formatted);
-
+				serializeTime(play_time_total_formatted, play_activities->play_time_total);
 				char title[256];
-				int text_width = GFX_truncateText(font.large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
-				max_width = MIN(max_width, text_width);
-
-				SDL_Surface* text;
-				text = TTF_RenderUTF8_Blended(font.large, title, COLOR_WHITE);
-				GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
-				SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
-				SDL_FreeSurface(text);
+				snprintf(title, sizeof(title), "Game Time: %s", play_time_total_formatted);
+				UI_renderMenuBar(screen, title);
 			}
 
 			renderList(count, start, end, selected);

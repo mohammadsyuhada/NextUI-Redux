@@ -158,9 +158,71 @@ static void led_save_settings(void) {
 }
 
 static void led_apply_and_save(void) {
-	LEDS_setProfile(LIGHT_PROFILE_DEFAULT);
-	LEDS_updateLeds(false);
 	led_save_settings();
+	LEDS_initLeds();
+	// Push updated values to hardware so changes are visible immediately.
+	// Don't use LEDS_setProfile here — that would clobber the active
+	// operational profile (charging, low-battery, etc.).
+	LEDS_updateLeds(false);
+}
+
+// ============================================
+// Forward declarations for zone items (needed by sync helpers)
+// ============================================
+
+#define MAX_ZONE_ITEMS 5
+static SettingItem zone_items[MAX_LIGHTS][MAX_ZONE_ITEMS];
+
+#define BRIGHTNESS_ITEM_IDX 3
+#define INBRIGHTNESS_ITEM_IDX 4
+
+// ============================================
+// Brightness sync helpers
+// ============================================
+
+/*
+ * Hardware brightness paths are shared between zones:
+ *   Brick: F1+F2 share max_scale_f1f2 (F2 writes are skipped by platform)
+ *          Topbar has max_scale, L&R has max_scale_lr
+ *   Non-brick: all zones share max_scale
+ *
+ * When one zone's brightness changes, sync the coupled zones'
+ * stored values and UI items so everything stays consistent.
+ */
+static void led_sync_coupled_brightness(int source_zone) {
+	int val = lightsDefault[source_zone].brightness;
+	if (led_is_brick) {
+		/* F1 (zone 0) and F2 (zone 1) share brightness */
+		if (source_zone <= 1) {
+			lightsDefault[0].brightness = val;
+			lightsDefault[1].brightness = val;
+			settings_item_sync(&zone_items[0][BRIGHTNESS_ITEM_IDX]);
+			settings_item_sync(&zone_items[1][BRIGHTNESS_ITEM_IDX]);
+		}
+	} else {
+		/* All zones share brightness */
+		for (int z = 0; z < led_num_lights; z++) {
+			lightsDefault[z].brightness = val;
+			settings_item_sync(&zone_items[z][BRIGHTNESS_ITEM_IDX]);
+		}
+	}
+}
+
+static void led_sync_coupled_inbrightness(int source_zone) {
+	int val = lightsDefault[source_zone].inbrightness;
+	if (led_is_brick) {
+		if (source_zone <= 1) {
+			lightsDefault[0].inbrightness = val;
+			lightsDefault[1].inbrightness = val;
+			settings_item_sync(&zone_items[0][INBRIGHTNESS_ITEM_IDX]);
+			settings_item_sync(&zone_items[1][INBRIGHTNESS_ITEM_IDX]);
+		}
+	} else {
+		for (int z = 0; z < led_num_lights; z++) {
+			lightsDefault[z].inbrightness = val;
+			settings_item_sync(&zone_items[z][INBRIGHTNESS_ITEM_IDX]);
+		}
+	}
 }
 
 // ============================================
@@ -195,6 +257,7 @@ static void led_apply_and_save(void) {
 	static void led_set_brightness_##Z(int val) {   \
 		lightsDefault[Z].brightness = val;          \
 		led_apply_and_save();                       \
+		led_sync_coupled_brightness(Z);             \
 	}                                               \
 	static int led_get_inbrightness_##Z(void) {     \
 		return lightsDefault[Z].inbrightness;       \
@@ -202,6 +265,7 @@ static void led_apply_and_save(void) {
 	static void led_set_inbrightness_##Z(int val) { \
 		lightsDefault[Z].inbrightness = val;        \
 		led_apply_and_save();                       \
+		led_sync_coupled_inbrightness(Z);           \
 	}
 
 LED_ZONE_CALLBACKS(0)
@@ -228,9 +292,6 @@ static led_set_fn zone_set_inbrightness[] = {led_set_inbrightness_0, led_set_inb
 // Zone page construction
 // ============================================
 
-#define MAX_ZONE_ITEMS 5
-
-static SettingItem zone_items[MAX_LIGHTS][MAX_ZONE_ITEMS];
 static SettingsPage zone_pages[MAX_LIGHTS];
 
 static void led_build_zone_page(int zone_idx, const char* title,
@@ -260,7 +321,7 @@ static void led_build_zone_page(int zone_idx, const char* title,
 
 	const char* inbrightness_name = led_is_brick ? "Info Brightness" : "Info Brightness (All LEDs)";
 	zone_items[zone_idx][idx++] = (SettingItem)ITEM_CYCLE_INIT(
-		inbrightness_name, "LED brightness level during charging",
+		inbrightness_name, "LED brightness during charging/low battery",
 		led_brightness_labels, LED_BRIGHTNESS_LABEL_COUNT, led_brightness_values,
 		zone_get_inbrightness[zone_idx], zone_set_inbrightness[zone_idx], NULL);
 
