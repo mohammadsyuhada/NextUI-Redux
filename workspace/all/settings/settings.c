@@ -15,6 +15,7 @@
 #include "settings_bt.h"
 #include "settings_led.h"
 #include "settings_developer.h"
+#include "settings_updater.h"
 #include "ui_components.h"
 
 #include <stdio.h>
@@ -1676,7 +1677,12 @@ static void build_menu_tree(const DeviceInfo* dev) {
 		"Stock OS version", "", get_about_os_version);
 	about_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
 		"Busybox version", "", get_about_busybox);
+	about_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
+		"Updater", "",
+		updater_check_for_updates);
 	init_page(&about_page, "About", about_items, idx, 0);
+	about_page.on_show = updater_about_on_show;
+	about_page.on_tick = updater_about_on_tick;
 
 	// ============================
 	// Main page (category list)
@@ -1788,6 +1794,7 @@ int main(int argc, char* argv[]) {
 		bt_page_ptr->screen = screen;
 	if (dev_page_ptr)
 		dev_page_ptr->screen = screen;
+	about_page.screen = screen;
 
 	settings_menu_init();
 	settings_menu_push(&main_page);

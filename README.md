@@ -40,10 +40,10 @@ Improvements:
 - Fixed incorrect Wi-Fi/Bluetooth state icons in the quick menu
 - Added a semi-transparent progress overlay for all blocking actions
 - Added confirmation dialogs for actions that require them
-- Rewrote the `Settings` and `Updater` app in C with a redesigned UI
+- Rewrote the `Settings` app in C with a redesigned UI
 - Updated the `Battery`, `Clock`, and `Input` app with the redesigned UI 
 - Integrated the `Remove Loading` feature directly into the install script (no separate app required) 
-- Moved the `LED Control` configurations into `Settings` app (no separate app required)
+- Moved the `LED Control` configurations and `Updater` into `Settings` app (no separate app required)
 - Split release builds into per-platform zips (tg5040/tg5050) 
 
 New Features:
