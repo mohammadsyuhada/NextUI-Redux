@@ -25,6 +25,7 @@ int isConsoleDir(char* path);
 
 // Content retrieval
 Entry* entryFromPakName(char* pak_name);
+void Content_invalidateEmulist(void);
 Array* getRoms(void);
 Array* getCollections(void);
 Array* getRoot(int simple_mode);

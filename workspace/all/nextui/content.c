@@ -1,11 +1,14 @@
 #include <dirent.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "content.h"
 #include "shortcuts.h"
 #include "api.h"
 #include "config.h"
 
 static bool _simple_mode = false;
+
+#define EMULIST_CACHE_PATH "/tmp/emulist_cache.txt"
 
 void Content_setSimpleMode(bool mode) {
 	_simple_mode = mode;
@@ -333,8 +336,60 @@ int isConsoleDir(char* path) {
 ///////////////////////////////////////
 // Content retrieval
 
-Array* getRoms(void) {
+static void writeRomsCache(Array* entries) {
+	FILE* file = fopen(EMULIST_CACHE_PATH, "w");
+	if (!file)
+		return;
+	for (int i = 0; i < entries->count; i++) {
+		Entry* entry = entries->items[i];
+		fputs(entry->path, file);
+		fputc('\t', file);
+		fputs(entry->name, file);
+		fputc('\n', file);
+	}
+	fclose(file);
+}
+
+static Array* readRomsCache(void) {
+	FILE* file = fopen(EMULIST_CACHE_PATH, "r");
+	if (!file)
+		return NULL;
+
 	Array* entries = Array_new();
+	char line[MAX_PATH];
+	while (fgets(line, sizeof(line), file) != NULL) {
+		normalizeNewline(line);
+		trimTrailingNewlines(line);
+		if (strlen(line) == 0)
+			continue;
+
+		char* tab = strchr(line, '\t');
+		if (!tab) {
+			EntryArray_free(entries);
+			fclose(file);
+			return NULL; // malformed cache, force rescan
+		}
+		*tab = '\0';
+		char* path = line;
+		char* name = tab + 1;
+		Array_push(entries, Entry_newNamed(path, ENTRY_DIR, name));
+	}
+	fclose(file);
+	return entries;
+}
+
+void Content_invalidateEmulist(void) {
+	unlink(EMULIST_CACHE_PATH);
+}
+
+Array* getRoms(void) {
+	// Try loading from cache first
+	Array* entries = readRomsCache();
+	if (entries)
+		return entries;
+
+	// Cache miss: full filesystem scan
+	entries = Array_new();
 	DIR* dh = opendir(ROMS_PATH);
 	if (dh) {
 		struct dirent* dp;
@@ -414,6 +469,9 @@ Array* getRoms(void) {
 		}
 	}
 
+	// Write cache for next launch
+	writeRomsCache(entries);
+
 	return entries;
 }
 
@@ -459,7 +517,7 @@ Array* getRoot(int simple_mode) {
 	}
 
 	// Add shortcuts (after Recents and Collections, before user root folders)
-	if (Shortcuts_getCount() > 0 && !simple_mode) {
+	if (Shortcuts_getCount() > 0) {
 		Shortcuts_validate();
 		for (int i = 0; i < Shortcuts_getCount(); i++) {
 			char* path = Shortcuts_getPath(i);

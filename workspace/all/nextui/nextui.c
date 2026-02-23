@@ -176,6 +176,14 @@ static int GameList_handleInput(unsigned long now, int currentScreen,
 		animationdirection = SLIDE_DOWN;
 		dirty = true;
 		folderbgchanged = 1;
+		GFX_clearLayers(LAYER_SCROLLTEXT);
+		if (list_scroll.cached_scroll_surface) {
+			SDL_FreeSurface(list_scroll.cached_scroll_surface);
+			list_scroll.cached_scroll_surface = NULL;
+		}
+		list_scroll.text[0] = '\0';
+		list_scroll.needs_scroll = false;
+		list_scroll.scroll_active = false;
 		if (!HAS_POWER_BUTTON && !simple_mode)
 			PWR_enableSleep();
 		return currentScreen;
@@ -184,6 +192,14 @@ static int GameList_handleInput(unsigned long now, int currentScreen,
 		GameSwitcher_resetSelection();
 		animationdirection = SLIDE_UP;
 		dirty = true;
+		GFX_clearLayers(LAYER_SCROLLTEXT);
+		if (list_scroll.cached_scroll_surface) {
+			SDL_FreeSurface(list_scroll.cached_scroll_surface);
+			list_scroll.cached_scroll_surface = NULL;
+		}
+		list_scroll.text[0] = '\0';
+		list_scroll.needs_scroll = false;
+		list_scroll.scroll_active = false;
 		return currentScreen;
 	} else if (total > 0 && confirm_shortcut_action == SHORTCUT_NONE) {
 		if (PAD_justRepeated(BTN_UP)) {

@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // ============================================
 // BusyBox stock version (for OS modification detection)
@@ -1314,7 +1315,7 @@ static void init_about_info(void) {
 
 #define MAX_APPEARANCE_ITEMS 20
 #define MAX_DISPLAY_ITEMS 8
-#define MAX_SYSTEM_ITEMS 18
+#define MAX_SYSTEM_ITEMS 19
 #define MAX_MUTE_ITEMS 20
 #define MAX_NOTIFY_ITEMS 8
 #define MAX_RA_ITEMS 15
@@ -1367,6 +1368,14 @@ static void reset_notify_page(void) {
 }
 static void reset_ra_page(void) {
 	settings_page_reset_all(&ra_page);
+}
+
+#define EMULIST_CACHE_PATH "/tmp/emulist_cache.txt"
+static SettingItem* refresh_emulist_item = NULL;
+static void refresh_emulist(void) {
+	unlink(EMULIST_CACHE_PATH);
+	if (refresh_emulist_item)
+		refresh_emulist_item->desc = "Done! Emulator list will refresh on next launch.";
 }
 
 // ITEM_*_INIT macros are defined in settings_menu.h
@@ -1554,6 +1563,10 @@ static void build_menu_tree(const DeviceInfo* dev) {
 			fan_speed_labels, FAN_SPEED_COUNT, fan_speed_values, get_fan_speed, set_fan_speed, reset_fan_speed);
 	}
 
+	system_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
+		"Refresh emulator list", "Clears the cached emulator list so it rescans on next launch.",
+		refresh_emulist);
+	refresh_emulist_item = &system_items[idx - 1];
 	system_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_system_page);

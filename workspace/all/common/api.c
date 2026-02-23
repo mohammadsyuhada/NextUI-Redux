@@ -3412,8 +3412,8 @@ static void PWR_waitForWake(void) {
 			pwr.requested_wake = 0;
 			break;
 		}
+		SDL_Delay(200);
 		if (sleepDelay > 0) {
-			SDL_Delay(200);
 			if (SDL_GetTicks() - sleep_ticks >= sleepDelay) { // increased to two minutes
 				if (SDL_AtomicGet(&pwr.is_charging)) {
 					sleep_ticks += 60000; // check again in a minute
