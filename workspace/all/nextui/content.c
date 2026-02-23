@@ -757,10 +757,12 @@ Array* getQuickEntries(int simple_mode) {
 Array* getQuickToggles(int simple_mode) {
 	Array* entries = Array_new();
 
-	Entry* settings = entryFromPakName("Settings");
-	if (settings) {
-		settings->quickId = QUICK_SETTINGS;
-		Array_push(entries, settings);
+	if (!simple_mode) {
+		Entry* settings = entryFromPakName("Settings");
+		if (settings) {
+			settings->quickId = QUICK_SETTINGS;
+			Array_push(entries, settings);
+		}
 	}
 
 	Entry* store = entryFromPakName("Pak Store");

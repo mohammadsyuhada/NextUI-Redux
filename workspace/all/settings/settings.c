@@ -1320,7 +1320,8 @@ static void init_about_info(void) {
 #define MAX_NOTIFY_ITEMS 8
 #define MAX_RA_ITEMS 15
 #define MAX_ABOUT_ITEMS 8
-#define MAX_MAIN_ITEMS 13
+#define MAX_SIMPLE_MODE_ITEMS 4
+#define MAX_MAIN_ITEMS 14
 
 static SettingItem appearance_items[MAX_APPEARANCE_ITEMS];
 static SettingItem display_items[MAX_DISPLAY_ITEMS];
@@ -1329,6 +1330,7 @@ static SettingItem mute_items[MAX_MUTE_ITEMS];
 static SettingItem notify_items[MAX_NOTIFY_ITEMS];
 static SettingItem ra_items[MAX_RA_ITEMS];
 static SettingItem about_items[MAX_ABOUT_ITEMS];
+static SettingItem simple_mode_items[MAX_SIMPLE_MODE_ITEMS];
 static SettingItem main_items[MAX_MAIN_ITEMS];
 
 static SettingsPage appearance_page;
@@ -1339,6 +1341,7 @@ static SettingsPage fn_switch_page; /* wraps mute_items into "FN Switch" titled 
 static SettingsPage notify_page;
 static SettingsPage ra_page;
 static SettingsPage about_page;
+static SettingsPage simple_mode_page;
 static SettingsPage main_page;
 
 /* WiFi/BT/LED pages (created upfront in build_menu_tree) */
@@ -1346,6 +1349,23 @@ static SettingsPage* wifi_page_ptr = NULL;
 static SettingsPage* bt_page_ptr = NULL;
 static SettingsPage* led_page_ptr = NULL;
 static SettingsPage* dev_page_ptr = NULL;
+
+// ============================================
+// Simple Mode callbacks
+// ============================================
+
+static int get_simple_mode(void) {
+	return exists((char*)SIMPLE_MODE_PATH) ? 1 : 0;
+}
+static void set_simple_mode(int v) {
+	if (v)
+		touch((char*)SIMPLE_MODE_PATH);
+	else
+		unlink(SIMPLE_MODE_PATH);
+}
+static void reset_simple_mode(void) {
+	unlink(SIMPLE_MODE_PATH);
+}
 
 // ============================================
 // Reset button callbacks (reference pages)
@@ -1705,6 +1725,21 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	init_page(&ra_page, "RetroAchievements", ra_items, idx, 0);
 
 	// ============================
+	// Simple Mode page
+	// ============================
+	idx = 0;
+	simple_mode_items[idx++] = (SettingItem)ITEM_CYCLE_INIT(
+		"Simple Mode", "Enable simplified menu for children or casual users.",
+		on_off_labels, 2, on_off_values, get_simple_mode, set_simple_mode, reset_simple_mode);
+	simple_mode_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
+		"Hides Tools and replaces Options with Reset in-game.", "", NULL);
+	simple_mode_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
+		"Settings is hidden in Quick Menu when enabled.", "", NULL);
+	simple_mode_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
+		"To access settings: In Quick Menu, press L2+R2.", "", NULL);
+	init_page(&simple_mode_page, "Simple Mode", simple_mode_items, idx, 0);
+
+	// ============================
 	// About page
 	// ============================
 	idx = 0;
@@ -1776,6 +1811,9 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	}
 
 	main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
+		"Simple Mode", "Simplified menu for children", &simple_mode_page);
+
+	main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
 		"About", "", &about_page);
 
 	init_page(&main_page, "Settings", main_items, idx, 1);
@@ -1786,7 +1824,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	{
 		SettingsPage* pages[] = {
 			&appearance_page, &display_page, &system_page,
-			&fn_switch_page, &notify_page, &ra_page, NULL};
+			&fn_switch_page, &notify_page, &ra_page, &simple_mode_page, NULL};
 		for (int p = 0; pages[p]; p++) {
 			for (int i = 0; i < pages[p]->item_count; i++) {
 				settings_item_sync(&pages[p]->items[i]);

@@ -102,9 +102,11 @@ static int qm_slot = 0;
 static int qm_shift = 0;
 static int qm_slots = 0;
 static bool qm_connect_active = false;
+static int qm_simple_mode = 0;
 
 
 void QuickMenu_init(int simple_mode) {
+	qm_simple_mode = simple_mode;
 	quick = getQuickEntries(simple_mode);
 	quickActions = getQuickToggles(simple_mode);
 	qm_slots =
@@ -137,6 +139,17 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 		}
 		result.dirty = true;
 		return result;
+	}
+
+	// L2+R2 combo: open Settings in simple mode
+	if (qm_simple_mode && PAD_isPressed(BTN_L2) && PAD_isPressed(BTN_R2)) {
+		Entry* settings = entryFromPakName("Settings");
+		if (settings) {
+			Entry_open(settings);
+			Entry_free(settings);
+			result.dirty = true;
+			return result;
+		}
 	}
 
 	int qm_total = qm_row == QM_ROW_ITEMS ? quick->count : quickActions->count;
