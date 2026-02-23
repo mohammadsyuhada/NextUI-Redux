@@ -5,7 +5,6 @@
 #include <string.h>
 #include <dirent.h>
 
-#include "vp_defines.h"
 #include "api.h"
 #include "parson/parson.h"
 

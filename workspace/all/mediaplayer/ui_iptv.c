@@ -2,12 +2,10 @@
 #include <string.h>
 
 #include "ui_list.h"
-#include "vp_defines.h"
 #include "api.h"
 #include "ui_components.h"
 #include "ui_iptv.h"
 #include "ui_fonts.h"
-#include "ui_utils.h"
 #include "ui_toast.h"
 #include "iptv.h"
 #include "iptv_curated.h"
@@ -19,14 +17,14 @@ void render_iptv_user_channels(SDL_Surface* screen, IndicatorType show_setting,
 	GFX_clear(screen);
 	char truncated[256];
 
-	render_screen_header(screen, "Online TV", show_setting);
+	UI_renderMenuBar(screen, "Online TV");
 
 	int channel_count = IPTV_getUserChannelCount();
 	const IPTVChannel* channels = IPTV_getUserChannels();
 
 	ListLayout layout = UI_calcListLayout(screen);
 	int scroll = scroll_offset;
-	adjust_list_scroll(selected, &scroll, layout.items_per_page);
+	UI_adjustListScroll(selected, &scroll, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && (scroll + i) < channel_count; i++) {
 		int idx = scroll + i;
@@ -44,7 +42,7 @@ void render_iptv_user_channels(SDL_Surface* screen, IndicatorType show_setting,
 							  is_selected);
 	}
 
-	render_scroll_indicators(screen, scroll, layout.items_per_page, channel_count);
+	UI_renderScrollIndicators(screen, scroll, layout.items_per_page, channel_count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "PLAY", NULL});
 }
@@ -52,7 +50,7 @@ void render_iptv_user_channels(SDL_Surface* screen, IndicatorType show_setting,
 // Render IPTV empty state (no channels added)
 void render_iptv_empty(SDL_Surface* screen, IndicatorType show_setting) {
 	GFX_clear(screen);
-	render_screen_header(screen, "Online TV", show_setting);
+	UI_renderMenuBar(screen, "Online TV");
 	UI_renderEmptyState(screen, "No channels saved",
 						"Press Y to manage channels", NULL);
 
@@ -67,13 +65,13 @@ void render_iptv_curated_countries(SDL_Surface* screen, IndicatorType show_setti
 	int hw = screen->w;
 	char truncated[256];
 
-	render_screen_header(screen, "Browse Channels", show_setting);
+	UI_renderMenuBar(screen, "Browse Channels");
 
 	int country_count = IPTV_curated_get_country_count();
 	const CuratedTVCountry* countries = IPTV_curated_get_countries();
 
 	ListLayout layout = UI_calcListLayout(screen);
-	adjust_list_scroll(selected, scroll_offset, layout.items_per_page);
+	UI_adjustListScroll(selected, scroll_offset, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && *scroll_offset + i < country_count; i++) {
 		int idx = *scroll_offset + i;
@@ -101,7 +99,7 @@ void render_iptv_curated_countries(SDL_Surface* screen, IndicatorType show_setti
 		}
 	}
 
-	render_scroll_indicators(screen, *scroll_offset, layout.items_per_page, country_count);
+	UI_renderScrollIndicators(screen, *scroll_offset, layout.items_per_page, country_count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"B", "BACK", "A", "SELECT", NULL});
 }
@@ -128,13 +126,13 @@ void render_iptv_curated_channels(SDL_Surface* screen, IndicatorType show_settin
 		}
 	}
 
-	render_screen_header(screen, country_name, show_setting);
+	UI_renderMenuBar(screen, country_name);
 
 	int channel_count = 0;
 	const CuratedTVChannel* channels = IPTV_curated_get_channels(country_code, &channel_count);
 
 	ListLayout layout = UI_calcListLayout(screen);
-	adjust_list_scroll(selected, scroll_offset, layout.items_per_page);
+	UI_adjustListScroll(selected, scroll_offset, layout.items_per_page);
 
 	// Determine if the currently selected channel is already added
 	bool selected_exists = false;
@@ -198,7 +196,7 @@ void render_iptv_curated_channels(SDL_Surface* screen, IndicatorType show_settin
 		}
 	}
 
-	render_scroll_indicators(screen, *scroll_offset, layout.items_per_page, sorted_count);
+	UI_renderScrollIndicators(screen, *scroll_offset, layout.items_per_page, sorted_count);
 
 	// Toast notification
 	UI_renderToast(screen, toast_message, toast_time);

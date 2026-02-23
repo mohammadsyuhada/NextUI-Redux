@@ -156,9 +156,9 @@ ModuleExitReason SettingsModule_run(SDL_Surface* screen) {
 				state = SETTINGS_STATE_MENU;
 			}
 
-			// Keep refreshing while update is in progress
-			if (ytdlp_status->updating)
-				dirty = 1;
+			// Always repaint while on the updating screen
+			// (need to show final state: success, error, or already-up-to-date)
+			dirty = 1;
 
 			break;
 		}

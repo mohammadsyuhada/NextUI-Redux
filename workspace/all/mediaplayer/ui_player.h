@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 #include "api.h"
 #include "video_browser.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Render the video file browser
 void render_video_browser(SDL_Surface* screen, IndicatorType show_setting,

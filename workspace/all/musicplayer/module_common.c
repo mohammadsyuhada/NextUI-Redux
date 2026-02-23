@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "api.h"
 #include "module_common.h"
+#include "ui_toast.h"
 #include "module_player.h"
 #include "settings.h"
 #include "ui_main.h"

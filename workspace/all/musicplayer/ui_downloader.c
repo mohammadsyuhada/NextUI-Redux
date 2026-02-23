@@ -6,7 +6,7 @@
 #include "ui_components.h"
 #include "ui_downloader.h"
 #include "ui_fonts.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 #include "ui_toast.h"
 
 // Scroll text state for YouTube results (selected item)
@@ -69,7 +69,7 @@ void render_downloader_menu(SDL_Surface* screen, IndicatorType show_setting, int
 		.get_label = youtube_menu_get_label,
 		.render_badge = NULL,
 		.get_icon = NULL};
-	render_simple_menu(screen, show_setting, menu_selected, &config);
+	UI_renderSimpleMenu(screen, menu_selected, &config);
 
 	// Toast notification
 	UI_renderToast(screen, toast_message, toast_time);
@@ -127,7 +127,7 @@ void render_downloader_results(SDL_Surface* screen, IndicatorType show_setting,
 
 	// Adjust scroll (only if there's a selection)
 	if (selected >= 0) {
-		adjust_list_scroll(selected, scroll, layout.items_per_page);
+		UI_adjustListScroll(selected, scroll, layout.items_per_page);
 	}
 
 	// Reserve space for duration on the right (format: "99:59" max)
@@ -254,7 +254,7 @@ void render_downloader_queue(SDL_Surface* screen, IndicatorType show_setting,
 	layout.items_per_page = layout.list_h / layout.item_h;
 	if (layout.items_per_page > 5)
 		layout.items_per_page = 5;
-	adjust_list_scroll(queue_selected, queue_scroll, layout.items_per_page);
+	UI_adjustListScroll(queue_selected, queue_scroll, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && *queue_scroll + i < qcount; i++) {
 		int idx = *queue_scroll + i;
@@ -295,7 +295,7 @@ void render_downloader_queue(SDL_Surface* screen, IndicatorType show_setting,
 		int badge_width = 0;
 		// For downloading state, subtitle includes progress bar + gap before text
 		int extra_sub_w = (item->status == DOWNLOADER_STATUS_DOWNLOADING) ? SCALE1(50) + SCALE1(6) : 0;
-		ListItemBadgedPos pos = render_list_item_pill_badged(screen, &layout, item->title, subtitle, truncated, y, is_selected, badge_width, extra_sub_w);
+		ListItemBadgedPos pos = UI_renderListItemPillBadged(screen, &layout, font.medium, font.small, font.tiny, item->title, subtitle, truncated, y, is_selected, badge_width, extra_sub_w);
 
 		// Title text (row 1)
 		UI_renderListItemText(screen, is_selected ? &downloader_queue_scroll_text : NULL,
@@ -367,7 +367,7 @@ void render_downloader_queue(SDL_Surface* screen, IndicatorType show_setting,
 	}
 
 	// Scroll indicators
-	render_scroll_indicators(screen, *queue_scroll, layout.items_per_page, qcount);
+	UI_renderScrollIndicators(screen, *queue_scroll, layout.items_per_page, qcount);
 
 	// Button hints
 	if (qcount > 0) {

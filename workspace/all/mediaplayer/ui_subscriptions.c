@@ -4,7 +4,6 @@
 
 #include <SDL2/SDL_image.h>
 
-#include "vp_defines.h"
 #include "api.h"
 #include "ui_components.h"
 #include "ui_subscriptions.h"
@@ -130,7 +129,7 @@ void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,
 	GFX_clear(screen);
 	char truncated[256];
 
-	render_screen_header(screen, "Subscriptions", show_setting);
+	UI_renderMenuBar(screen, "Subscriptions");
 
 	if (subs->count == 0) {
 		render_subscriptions_empty(screen, show_setting);
@@ -146,7 +145,7 @@ void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,
 		items_per_page = 1;
 
 	int scroll = scroll_offset;
-	adjust_list_scroll(selected, &scroll, items_per_page);
+	UI_adjustListScroll(selected, &scroll, items_per_page);
 
 	// Lazy-load one avatar per frame
 	avatar_load_visible(subs, scroll, items_per_page);
@@ -173,9 +172,9 @@ void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,
 				has_avatar = true;
 		}
 
-		ListItemRichPos pos = render_list_item_pill_rich(screen, &layout,
-														 ch->channel_name, subtitle, truncated,
-														 y, is_selected, has_avatar, 0);
+		ListItemRichPos pos = UI_renderListItemPillRich(screen, &layout,
+														ch->channel_name, subtitle, truncated,
+														y, is_selected, has_avatar, 0);
 
 		// Blit avatar if available
 		if (avatar && has_avatar) {
@@ -203,7 +202,7 @@ void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,
 						int badge_bg_h = badge_surf->h + SCALE1(2);
 						int badge_bg_y = pos.subtitle_y - SCALE1(1);
 						uint32_t green_bg = SDL_MapRGB(screen->format, 30, 80, 30);
-						render_rounded_rect_bg(screen, badge_x - SCALE1(4), badge_bg_y,
+						UI_renderRoundedRectBg(screen, badge_x - SCALE1(4), badge_bg_y,
 											   badge_bg_w, badge_bg_h, green_bg);
 						SDL_BlitSurface(badge_surf, NULL, screen,
 										&(SDL_Rect){badge_x, pos.subtitle_y});
@@ -216,7 +215,7 @@ void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_scroll_indicators(screen, scroll, items_per_page, subs->count);
+	UI_renderScrollIndicators(screen, scroll, items_per_page, subs->count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "VIEW", "X", "REMOVE", NULL});
 }
@@ -229,7 +228,7 @@ void render_channel_videos(SDL_Surface* screen, IndicatorType show_setting,
 	GFX_clear(screen);
 	char truncated[256];
 
-	render_screen_header(screen, channel_name, show_setting);
+	UI_renderMenuBar(screen, channel_name);
 
 	if (results->count == 0) {
 		UI_renderEmptyState(screen, "No videos found", NULL, NULL);
@@ -245,7 +244,7 @@ void render_channel_videos(SDL_Surface* screen, IndicatorType show_setting,
 		items_per_page = 1;
 
 	int scroll = scroll_offset;
-	adjust_list_scroll(selected, &scroll, items_per_page);
+	UI_adjustListScroll(selected, &scroll, items_per_page);
 
 	for (int i = 0; i < items_per_page && (scroll + i) < results->count; i++) {
 		int idx = scroll + i;
@@ -264,9 +263,9 @@ void render_channel_videos(SDL_Surface* screen, IndicatorType show_setting,
 			subtitle[0] = '\0';
 		}
 
-		ListItemRichPos pos = render_list_item_pill_rich(screen, &layout,
-														 r->title, subtitle, truncated,
-														 y, is_selected, false, 0);
+		ListItemRichPos pos = UI_renderListItemPillRich(screen, &layout,
+														r->title, subtitle, truncated,
+														y, is_selected, false, 0);
 
 		UI_renderListItemText(screen, scroll_state, r->title, font.medium,
 							  pos.title_x, pos.title_y, pos.text_max_width, is_selected);
@@ -281,7 +280,7 @@ void render_channel_videos(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_scroll_indicators(screen, scroll, items_per_page, results->count);
+	UI_renderScrollIndicators(screen, scroll, items_per_page, results->count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"B", "BACK", "A", "PLAY", NULL});
 }
@@ -313,7 +312,7 @@ void render_channel_searching(SDL_Surface* screen, const char* channel_name) {
 
 void render_subscriptions_empty(SDL_Surface* screen, IndicatorType show_setting) {
 	GFX_clear(screen);
-	render_screen_header(screen, "Subscriptions", show_setting);
+	UI_renderMenuBar(screen, "Subscriptions");
 	UI_renderEmptyState(screen, "No subscriptions",
 						"Subscribe to channels from YouTube search", NULL);
 }

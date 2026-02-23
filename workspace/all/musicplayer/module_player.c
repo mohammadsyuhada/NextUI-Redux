@@ -19,7 +19,7 @@
 #include "lyrics.h"
 #include "settings.h"
 #include "add_to_playlist.h"
-#include "ui_utils.h"
+#include "ui_toast.h"
 #include "resume.h"
 #include "playlist_m3u.h"
 #include "background.h"

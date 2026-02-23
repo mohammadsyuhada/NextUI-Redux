@@ -15,9 +15,7 @@
 #include "ui_components.h"
 #include "ui_subscriptions.h"
 #include "ui_youtube.h"
-#include "ui_main.h"
 #include "ui_icons.h"
-#include "ui_utils.h"
 
 // Module states
 typedef enum {
@@ -188,7 +186,7 @@ ModuleExitReason SubscriptionsModule_run(SDL_Surface* screen) {
 				continue;
 			}
 			// Render confirmation dialog (covers entire screen)
-			render_confirmation_dialog(screen, confirm_channel_name, "Remove Subscription?");
+			UI_renderConfirmDialog(screen, "Remove Subscription?", confirm_channel_name);
 			GFX_flip(screen);
 			GFX_sync();
 			continue;

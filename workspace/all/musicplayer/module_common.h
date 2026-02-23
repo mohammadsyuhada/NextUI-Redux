@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include "api.h"
 #include "player.h"
-#include "ui_toast.h"
 
 // Screen off hint duration (time hint is shown before screen turns off)
 #define SCREEN_OFF_HINT_DURATION_MS 4000

@@ -3,6 +3,7 @@
 #include "api.h"
 #include "module_common.h"
 #include "module_settings.h"
+#include "ui_settings.h"
 #include "ytdlp_updater.h"
 #include "wifi.h"
 
@@ -21,7 +22,7 @@ typedef enum {
 #define SETTINGS_INTERNAL_MENU 41
 
 ModuleExitReason SettingsModule_run(SDL_Surface* screen) {
-	SettingsState state = SETTINGS_STATE_UPDATING_YTDLP;
+	SettingsState state = SETTINGS_STATE_MENU;
 	int menu_selected = 0;
 	bool dirty = true;
 	IndicatorType show_setting = INDICATOR_NONE;
@@ -75,9 +76,9 @@ ModuleExitReason SettingsModule_run(SDL_Surface* screen) {
 				state = SETTINGS_STATE_MENU;
 			}
 
-			// Keep refreshing while update is in progress
-			if (ytdlp_status->updating)
-				dirty = 1;
+			// Always repaint while on the updating screen
+			// (need to show final state: success, error, or already-up-to-date)
+			dirty = 1;
 
 			break;
 		}
@@ -89,6 +90,9 @@ ModuleExitReason SettingsModule_run(SDL_Surface* screen) {
 		// Render
 		if (dirty) {
 			switch (state) {
+			case SETTINGS_STATE_MENU:
+				render_settings_menu(screen, show_setting, menu_selected);
+				break;
 			case SETTINGS_STATE_UPDATING_YTDLP:
 				render_ytdlp_updating(screen, show_setting);
 				break;

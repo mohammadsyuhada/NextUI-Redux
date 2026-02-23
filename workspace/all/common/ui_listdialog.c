@@ -3,9 +3,9 @@
 #include "ui_components.h"
 #include "api.h"
 #include "defines.h"
-
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 static char dialog_title[128];
 static char dialog_status[128];
@@ -13,7 +13,6 @@ static ListDialogItem dialog_items[LISTDIALOG_MAX_ITEMS];
 static int dialog_count;
 static int dialog_selected;
 static int dialog_scroll;
-static bool dialog_single_line;
 
 void ListDialog_init(const char* title) {
 	strncpy(dialog_title, title, sizeof(dialog_title) - 1);
@@ -22,12 +21,7 @@ void ListDialog_init(const char* title) {
 	dialog_count = 0;
 	dialog_selected = 0;
 	dialog_scroll = 0;
-	dialog_single_line = false;
 	memset(dialog_items, 0, sizeof(dialog_items));
-}
-
-void ListDialog_setSingleLine(bool single_line) {
-	dialog_single_line = single_line;
 }
 
 void ListDialog_setItems(ListDialogItem* items, int count) {
@@ -104,8 +98,8 @@ static int render_icons(SDL_Surface* screen, const int* icons,
 }
 
 // Layout: [prepend_icons] Title ... [append_icons or detail text]
-static void render_single_line_item(SDL_Surface* screen, ListLayout* layout,
-									ListDialogItem* item, int y, bool selected) {
+static void render_item(SDL_Surface* screen, ListLayout* layout,
+						ListDialogItem* item, int y, bool selected) {
 	// Measure prepend icons
 	int prepend_w = calc_icons_width(item->prepend_icons);
 	int prepend_gap = prepend_w > 0 ? SCALE1(BUTTON_MARGIN) : 0;
@@ -120,18 +114,39 @@ static void render_single_line_item(SDL_Surface* screen, ListLayout* layout,
 	}
 	int suffix_gap = suffix_w > 0 ? SCALE1(BUTTON_MARGIN) : 0;
 
-	// Render pill (extra space for prepend + suffix)
+	// Calculate pill width (extra space for prepend + suffix)
 	int extra = prepend_w + prepend_gap + suffix_w + suffix_gap;
 	char truncated[256];
-	ListItemPos pos = UI_renderListItemPill(
-		screen, layout, font.small, item->text,
-		truncated, y, selected, extra);
+	int pill_width = UI_calcListPillWidth(font.small, item->text, truncated,
+										  layout->max_width, extra);
 
+	// Draw rounded rect background for selected item
+	if (selected) {
+		int px = SCALE1(PADDING);
+		int pw = pill_width;
+		int h = layout->item_h;
+		int r = h / 3;
+		if (r > pw / 2)
+			r = pw / 2;
+		if (h - 2 * r > 0)
+			SDL_FillRect(screen, &(SDL_Rect){px, y + r, pw, h - 2 * r}, THEME_COLOR1);
+		for (int dy = 0; dy < r; dy++) {
+			int yd = r - dy;
+			int inset = r - (int)sqrtf((float)(r * r - yd * yd));
+			int row_w = pw - 2 * inset;
+			if (row_w <= 0)
+				continue;
+			SDL_FillRect(screen, &(SDL_Rect){px + inset, y + dy, row_w, 1}, THEME_COLOR1);
+			SDL_FillRect(screen, &(SDL_Rect){px + inset, y + h - 1 - dy, row_w, 1}, THEME_COLOR1);
+		}
+	}
+
+	int text_x = SCALE1(PADDING) + SCALE1(BUTTON_PADDING);
+	int text_y = y + (layout->item_h - TTF_FontHeight(font.small)) / 2;
 	int center_y_pos = y + layout->item_h / 2;
 	uint32_t icon_color = selected ? THEME_COLOR5 : THEME_COLOR4;
 
 	// Prepend icons (left side, before title)
-	int text_x = pos.text_x;
 	if (prepend_w > 0) {
 		render_icons(screen, item->prepend_icons, text_x, center_y_pos, icon_color);
 		text_x += prepend_w + prepend_gap;
@@ -139,17 +154,17 @@ static void render_single_line_item(SDL_Surface* screen, ListLayout* layout,
 
 	// Title text
 	SDL_Color text_color = UI_getListTextColor(selected);
-	int max_text_w = pos.pill_width - SCALE1(BUTTON_PADDING * 2) - extra;
+	int max_text_w = pill_width - SCALE1(BUTTON_PADDING * 2) - extra;
 	SDL_Surface* text_surf = TTF_RenderUTF8_Blended(font.small, truncated, text_color);
 	if (text_surf) {
 		SDL_Rect src = {0, 0, text_surf->w > max_text_w ? max_text_w : text_surf->w, text_surf->h};
 		SDL_BlitSurface(text_surf, &src, screen,
-						&(SDL_Rect){text_x, pos.text_y, 0, 0});
+						&(SDL_Rect){text_x, text_y, 0, 0});
 		SDL_FreeSurface(text_surf);
 	}
 
 	// Append icons or detail text (right-aligned)
-	int right_x = SCALE1(PADDING) + pos.pill_width - SCALE1(BUTTON_PADDING) - suffix_w;
+	int right_x = SCALE1(PADDING) + pill_width - SCALE1(BUTTON_PADDING) - suffix_w;
 
 	if (has_append) {
 		render_icons(screen, item->append_icons, right_x, center_y_pos, icon_color);
@@ -166,6 +181,7 @@ static void render_single_line_item(SDL_Surface* screen, ListLayout* layout,
 }
 
 void ListDialog_render(SDL_Surface* screen) {
+	GFX_clearLayers(LAYER_SCROLLTEXT);
 	SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
 
 	int hw = screen->w;
@@ -195,7 +211,7 @@ void ListDialog_render(SDL_Surface* screen) {
 	// Calculate layout
 	ListLayout layout;
 	layout.list_y = SCALE1(PADDING + PILL_SIZE) + 10;
-	layout.item_h = dialog_single_line ? SCALE1(PILL_SIZE) : SCALE1(PILL_SIZE) * 3 / 2;
+	layout.item_h = SCALE1(PILL_SIZE) * 3 / 4;
 	layout.list_h = screen->h - layout.list_y - SCALE1(PADDING + BUTTON_SIZE + BUTTON_MARGIN);
 	layout.items_per_page = layout.list_h / layout.item_h;
 	layout.max_width = hw - SCALE1(PADDING * 2);
@@ -211,7 +227,7 @@ void ListDialog_render(SDL_Surface* screen) {
 		int y = layout.list_y + (i - dialog_scroll) * layout.item_h;
 		ListDialogItem* item = &dialog_items[i];
 
-		render_single_line_item(screen, &layout, item, y, selected);
+		render_item(screen, &layout, item, y, selected);
 	}
 
 	UI_renderScrollIndicators(screen, dialog_scroll, layout.items_per_page, dialog_count);
@@ -222,7 +238,6 @@ void ListDialog_quit(void) {
 	dialog_count = 0;
 	dialog_selected = 0;
 	dialog_scroll = 0;
-	dialog_single_line = false;
 	dialog_title[0] = '\0';
 	dialog_status[0] = '\0';
 }

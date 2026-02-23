@@ -4,7 +4,6 @@
 
 #include <SDL2/SDL_image.h>
 
-#include "vp_defines.h"
 #include "api.h"
 #include "ui_components.h"
 #include "ui_youtube.h"
@@ -162,7 +161,7 @@ void render_youtube_carousel(SDL_Surface* screen, IndicatorType show_setting,
 			int bg_h = counter_surf->h + SCALE1(6);
 			int bg_x = cx - SCALE1(6);
 			int bg_y = cy - SCALE1(3);
-			render_rounded_rect_bg(screen, bg_x, bg_y, bg_w, bg_h,
+			UI_renderRoundedRectBg(screen, bg_x, bg_y, bg_w, bg_h,
 								   SDL_MapRGB(screen->format, 0, 0, 0));
 			SDL_BlitSurface(counter_surf, NULL, screen, &(SDL_Rect){cx, cy});
 			SDL_FreeSurface(counter_surf);
@@ -431,7 +430,7 @@ void render_youtube_channel_info(SDL_Surface* screen, YouTubeChannelInfo* info,
 			int pill_x = (hw - pill_w) / 2;
 			int pill_y = content_y;
 
-			render_rounded_rect_bg(screen, pill_x, pill_y, pill_w, pill_h,
+			UI_renderRoundedRectBg(screen, pill_x, pill_y, pill_w, pill_h,
 								   SDL_MapRGB(screen->format, 40, 40, 40));
 
 			SDL_BlitSurface(status_surf, NULL, screen,
@@ -459,5 +458,5 @@ void render_youtube_submenu(SDL_Surface* screen, IndicatorType show_setting, int
 		.render_badge = NULL,
 		.get_icon = NULL,
 		.render_text = NULL};
-	render_simple_menu(screen, show_setting, selected, &config);
+	UI_renderSimpleMenu(screen, selected, &config);
 }

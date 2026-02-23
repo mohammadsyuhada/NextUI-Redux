@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 
 #include "vp_defines.h"
-#include "api.h"
 #include "parson/parson.h"
 
 #define IPTV_CHANNELS_DIR APP_DATA_DIR "/tv"

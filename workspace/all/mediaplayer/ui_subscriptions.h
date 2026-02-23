@@ -5,7 +5,7 @@
 #include "api.h"
 #include "subscriptions.h"
 #include "youtube.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Render subscription list
 void render_subscriptions_list(SDL_Surface* screen, IndicatorType show_setting,

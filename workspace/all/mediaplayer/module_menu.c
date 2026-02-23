@@ -5,7 +5,6 @@
 #include "api.h"
 #include "module_common.h"
 #include "module_menu.h"
-#include "ui_components.h"
 #include "ui_main.h"
 
 // Toast message state

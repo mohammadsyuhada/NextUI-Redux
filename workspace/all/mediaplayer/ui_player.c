@@ -6,7 +6,6 @@
 #include "ui_components.h"
 #include "ui_player.h"
 #include "ui_icons.h"
-#include "ui_utils.h"
 #include "video_browser.h"
 
 // Render the video file browser
@@ -25,7 +24,7 @@ void render_video_browser(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_screen_header(screen, header_title, show_setting);
+	UI_renderMenuBar(screen, header_title);
 
 	// Empty state: no videos at root
 	if (ctx->entry_count == 0) {
@@ -39,7 +38,7 @@ void render_video_browser(SDL_Surface* screen, IndicatorType show_setting,
 	ctx->items_per_page = layout.items_per_page;
 
 	// Adjust scroll to keep selected item visible
-	adjust_list_scroll(ctx->selected, &ctx->scroll_offset, ctx->items_per_page);
+	UI_adjustListScroll(ctx->selected, &ctx->scroll_offset, ctx->items_per_page);
 
 	// Icon dimensions
 	int icon_size = Icons_isLoaded() ? SCALE1(24) : 0;
@@ -101,7 +100,7 @@ void render_video_browser(SDL_Surface* screen, IndicatorType show_setting,
 	}
 
 	// Scroll indicators (up/down arrows)
-	render_scroll_indicators(screen, ctx->scroll_offset, ctx->items_per_page, ctx->entry_count);
+	UI_renderScrollIndicators(screen, ctx->scroll_offset, ctx->items_per_page, ctx->entry_count);
 
 	// Button hints
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "OPEN", NULL});

@@ -15,7 +15,7 @@
 
 // Paths
 static const char* ytdlp_path = SHARED_BIN_PATH "/yt-dlp";
-static const char* version_file = SHARED_USERDATA_PATH "/yt-dlp_version.txt";
+static const char* version_file = SHARED_BIN_PATH "/yt-dlp_version.txt";
 
 // Update status
 static YtdlpUpdateStatus update_status = {0};

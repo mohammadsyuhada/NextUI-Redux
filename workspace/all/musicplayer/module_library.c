@@ -3,11 +3,12 @@
 #include "defines.h"
 #include "api.h"
 #include "module_common.h"
+#include "ui_toast.h"
 #include "module_library.h"
 #include "module_player.h"
 #include "module_playlist.h"
 #include "module_downloader.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Library submenu items
 #define LIBRARY_FILES 0
@@ -33,7 +34,7 @@ static void render_library_menu(SDL_Surface* screen, IndicatorType show_setting,
 		.get_label = NULL,
 		.render_badge = NULL,
 		.get_icon = NULL};
-	render_simple_menu(screen, show_setting, menu_selected, &config);
+	UI_renderSimpleMenu(screen, menu_selected, &config);
 	UI_renderToast(screen, library_toast_message, library_toast_time);
 }
 

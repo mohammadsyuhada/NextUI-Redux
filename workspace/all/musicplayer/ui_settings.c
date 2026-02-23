@@ -4,7 +4,7 @@
 #include "api.h"
 #include "ui_components.h"
 #include "ui_settings.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 #include "settings.h"
 #include "album_art.h"
 #include "lyrics.h"

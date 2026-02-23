@@ -10,10 +10,7 @@
 #include "module_player.h"
 #include "video_browser.h"
 #include "ffplay_engine.h"
-#include "ui_components.h"
 #include "ui_player.h"
-#include "ui_icons.h"
-#include "ui_utils.h"
 
 // Browser scroll text state (for selected item marquee)
 static ScrollTextState browser_scroll = {0};

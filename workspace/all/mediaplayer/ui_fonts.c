@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "vp_defines.h"
 #include "api.h"
 #include "config.h"
 #include "ui_fonts.h"

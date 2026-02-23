@@ -6,11 +6,11 @@
 #include "ui_components.h"
 #include "ui_radio.h"
 #include "ui_fonts.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 #include "ui_toast.h"
 #include "ui_album_art.h"
 #include "album_art.h"
-#include "radio_curated.h"
+#include "radio.h"
 
 // Render the radio station list
 void render_radio_list(SDL_Surface* screen, IndicatorType show_setting,
@@ -36,7 +36,7 @@ void render_radio_list(SDL_Surface* screen, IndicatorType show_setting,
 
 	// Use common list layout calculation
 	ListLayout layout = UI_calcListLayout(screen);
-	adjust_list_scroll(radio_selected, radio_scroll, layout.items_per_page);
+	UI_adjustListScroll(radio_selected, radio_scroll, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && *radio_scroll + i < station_count; i++) {
 		int idx = *radio_scroll + i;
@@ -63,7 +63,7 @@ void render_radio_list(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_scroll_indicators(screen, *radio_scroll, layout.items_per_page, station_count);
+	UI_renderScrollIndicators(screen, *radio_scroll, layout.items_per_page, station_count);
 
 	// Show note for users using default stations (no custom stations yet)
 	if (!Radio_hasUserStations()) {
@@ -321,7 +321,7 @@ void render_radio_add(SDL_Surface* screen, IndicatorType show_setting,
 
 	// Use common list layout calculation
 	ListLayout layout = UI_calcListLayout(screen);
-	adjust_list_scroll(add_country_selected, add_country_scroll, layout.items_per_page);
+	UI_adjustListScroll(add_country_selected, add_country_scroll, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && *add_country_scroll + i < country_count; i++) {
 		int idx = *add_country_scroll + i;
@@ -349,7 +349,7 @@ void render_radio_add(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_scroll_indicators(screen, *add_country_scroll, layout.items_per_page, country_count);
+	UI_renderScrollIndicators(screen, *add_country_scroll, layout.items_per_page, country_count);
 
 	// Button hints
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "SELECT", NULL});
@@ -385,7 +385,7 @@ void render_radio_add_stations(SDL_Surface* screen, IndicatorType show_setting,
 
 	// Use common list layout calculation
 	ListLayout layout = UI_calcListLayout(screen);
-	adjust_list_scroll(add_station_selected, add_station_scroll, layout.items_per_page);
+	UI_adjustListScroll(add_station_selected, add_station_scroll, layout.items_per_page);
 
 	// Determine if the currently selected station is already added
 	bool selected_exists = false;
@@ -451,7 +451,7 @@ void render_radio_add_stations(SDL_Surface* screen, IndicatorType show_setting,
 		}
 	}
 
-	render_scroll_indicators(screen, *add_station_scroll, layout.items_per_page, sorted_count);
+	UI_renderScrollIndicators(screen, *add_station_scroll, layout.items_per_page, sorted_count);
 
 	// Toast notification
 	UI_renderToast(screen, toast_message, toast_time);

@@ -12,7 +12,6 @@
 #include <dirent.h>
 #include <samplerate.h>
 #include <SDL2/SDL_image.h>
-#include "defines.h"
 #include "api.h"
 #include "msettings.h"
 

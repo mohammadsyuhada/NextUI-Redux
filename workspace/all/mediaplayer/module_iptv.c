@@ -12,9 +12,8 @@
 #include "ffplay_engine.h"
 #include "ui_components.h"
 #include "ui_iptv.h"
-#include "ui_main.h"
 #include "ui_icons.h"
-#include "ui_utils.h"
+#include "ui_toast.h"
 
 // Module states
 typedef enum {
@@ -103,7 +102,7 @@ ModuleExitReason IPTVModule_run(SDL_Surface* screen) {
 				continue;
 			}
 			// Render confirmation dialog (covers entire screen)
-			render_confirmation_dialog(screen, confirm_channel_name, "Remove Channel?");
+			UI_renderConfirmDialog(screen, "Remove Channel?", confirm_channel_name);
 			GFX_flip(screen);
 			GFX_sync();
 			continue;

@@ -265,13 +265,11 @@ ConnectResult ConnectDialog_handleInput(void) {
 			if (!WIFI_enabled())
 				WIFI_enable(true);
 			ListDialog_init("WiFi Networks");
-			ListDialog_setSingleLine(true);
 			ListDialog_setStatus("Scanning...");
 		} else {
 			if (!BT_enabled())
 				BT_enable(true);
 			ListDialog_init("Bluetooth Devices");
-			ListDialog_setSingleLine(true);
 			ListDialog_setStatus("Scanning...");
 			BT_discovery(1);
 		}

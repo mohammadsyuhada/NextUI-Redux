@@ -80,12 +80,12 @@ static int ffplay_exec(FfplayConfig* config, int use_subs) {
 		for (int i = 0; i < config->subtitle_count; i++) {
 			if (scale_filter[0]) {
 				snprintf(vf_strs[i], sizeof(vf_strs[0]),
-						 "%s,subtitles='%s':fontsdir='%s/fonts':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
-						 scale_filter, config->subtitle_paths[i], APP_RES_PATH);
+						 "%s,subtitles='%s':fontsdir='%s':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
+						 scale_filter, config->subtitle_paths[i], RES_PATH);
 			} else {
 				snprintf(vf_strs[i], sizeof(vf_strs[0]),
-						 "subtitles='%s':fontsdir='%s/fonts':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
-						 config->subtitle_paths[i], APP_RES_PATH);
+						 "subtitles='%s':fontsdir='%s':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
+						 config->subtitle_paths[i], RES_PATH);
 			}
 			argv[argc++] = "-vf";
 			argv[argc++] = vf_strs[i];
@@ -107,14 +107,14 @@ static int ffplay_exec(FfplayConfig* config, int use_subs) {
 		//              ASS/SSA which have their own fonts and positioning
 		if (config->subtitle_is_external) {
 			snprintf(vf_str, sizeof(vf_str),
-					 "%s%ssubtitles='%s':fontsdir='%s/fonts':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
+					 "%s%ssubtitles='%s':fontsdir='%s':force_style='Fontname=Rounded Mplus 1c Bold,FontSize=32'",
 					 scale_filter, scale_filter[0] ? "," : "",
-					 config->subtitle_path, APP_RES_PATH);
+					 config->subtitle_path, RES_PATH);
 		} else {
 			snprintf(vf_str, sizeof(vf_str),
-					 "%s%ssubtitles='%s':fontsdir='%s/fonts'",
+					 "%s%ssubtitles='%s':fontsdir='%s'",
 					 scale_filter, scale_filter[0] ? "," : "",
-					 config->subtitle_path, APP_RES_PATH);
+					 config->subtitle_path, RES_PATH);
 		}
 		argv[argc++] = "-vf";
 		argv[argc++] = vf_str;
@@ -194,10 +194,22 @@ static int ffplay_exec(FfplayConfig* config, int use_subs) {
 		// Child process: configure environment before exec
 		if (bt_audio)
 			setenv("AUDIODEV", "bluealsa", 1);
-		// Point fontconfig to our minimal config so it finds res/fonts/font.ttf
-		// without scanning the entire filesystem (avoids ~13s startup delay)
-		if (use_subs)
-			setenv("FONTCONFIG_FILE", APP_RES_PATH "/fonts.conf", 1);
+		// Generate a minimal fontconfig pointing to system fonts directory
+		// so fontconfig doesn't scan the entire filesystem (~13s startup delay)
+		if (use_subs) {
+			FILE* fc = fopen("/tmp/ffplay-fonts.conf", "w");
+			if (fc) {
+				fprintf(fc,
+						"<?xml version=\"1.0\"?>\n"
+						"<!DOCTYPE fontconfig SYSTEM \"fonts.dtd\">\n"
+						"<fontconfig>\n"
+						"\t<dir>" RES_PATH "</dir>\n"
+						"\t<cachedir>/tmp/fontconfig-cache</cachedir>\n"
+						"</fontconfig>\n");
+				fclose(fc);
+				setenv("FONTCONFIG_FILE", "/tmp/ffplay-fonts.conf", 1);
+			}
+		}
 		execv(FFPLAY_PATH, argv);
 		_exit(127);
 	}

@@ -6,7 +6,7 @@
 #include "ui_components.h"
 #include "ui_playlist.h"
 #include "ui_icons.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Scroll text state for selected item in playlist lists
 static ScrollTextState playlist_scroll = {0};
@@ -45,7 +45,7 @@ void render_playlist_list(SDL_Surface* screen, IndicatorType show_setting,
 							  pos.text_x, pos.text_y, available_width, is_selected);
 	}
 
-	render_scroll_indicators(screen, scroll, layout.items_per_page, count);
+	UI_renderScrollIndicators(screen, scroll, layout.items_per_page, count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "SELECT", NULL});
 }
@@ -105,7 +105,7 @@ void render_playlist_detail(SDL_Surface* screen, IndicatorType show_setting,
 							  text_x, pos.text_y, available_width, is_selected);
 	}
 
-	render_scroll_indicators(screen, scroll, layout.items_per_page, count);
+	UI_renderScrollIndicators(screen, scroll, layout.items_per_page, count);
 }
 
 bool playlist_list_needs_scroll_refresh(void) {

@@ -7,10 +7,7 @@
 #include <time.h>
 #include <msettings.h>
 
-#include "vp_defines.h"
 #include "api.h"
-#include "utils.h"
-#include "config.h"
 
 #include "ui_icons.h"
 
@@ -18,7 +15,6 @@
 #include "module_menu.h"
 #include "module_player.h"
 #include "module_youtube.h"
-#include "module_subscriptions.h"
 #include "module_iptv.h"
 #include "module_settings.h"
 #include "settings.h"
@@ -27,7 +23,7 @@
 #include "subscriptions.h"
 #include "iptv.h"
 #include "iptv_curated.h"
-#include "keyboard.h"
+#include "ui_keyboard.h"
 
 // Global quit flag
 static bool quit = false;
@@ -85,7 +81,7 @@ int main(int argc, char* argv[]) {
 
 	// Initialize YouTube module
 	YouTube_init();
-	Keyboard_init();
+	UIKeyboard_init();
 
 	// Initialize subscriptions (loads from disk)
 	Subscriptions_init();

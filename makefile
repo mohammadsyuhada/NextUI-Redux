@@ -199,10 +199,10 @@ compile-commands:
 		extra_flags=""; \
 		case "$$file" in \
 			workspace/all/musicplayer/*) \
-				extra_flags="\"-I$(CURDIR)/workspace/all/musicplayer\", \"-I$(CURDIR)/workspace/all/musicplayer/include\", \"-I$(CURDIR)/workspace/all/include\", \"-I$(CURDIR)/workspace/all/musicplayer/audio\", \"-DMBEDTLS_CONFIG_FILE=<mbedtls_config.h>\", \"-DOPUS_BUILD\", \"-DHAVE_LRINTF\", \"-DOP_DISABLE_HTTP\", \"-DOP_DISABLE_FLOAT_API\", "; \
+				extra_flags="\"-I$(CURDIR)/workspace/all/musicplayer\", \"-I$(CURDIR)/workspace/all/musicplayer/include\", \"-I$(CURDIR)/workspace/all/musicplayer/include/fdk_aac\", \"-I$(CURDIR)/workspace/all/musicplayer/include/yxml\", \"-I$(CURDIR)/workspace/all/musicplayer/include/libogg\", \"-I$(CURDIR)/workspace/all/musicplayer/include/libopus/include\", \"-I$(CURDIR)/workspace/all/musicplayer/include/opusfile/include\", \"-I$(CURDIR)/workspace/all/include\", \"-I$(CURDIR)/workspace/all/include/mbedtls_lib\", \"-I$(CURDIR)/workspace/all/musicplayer/audio\", \"-DMBEDTLS_CONFIG_FILE=<mbedtls_config.h>\", \"-DOPUS_BUILD\", \"-DHAVE_LRINTF\", \"-DOP_DISABLE_HTTP\", \"-DOP_DISABLE_FLOAT_API\", "; \
 				;; \
 			workspace/all/mediaplayer/*) \
-				extra_flags="\"-I$(CURDIR)/workspace/all/mediaplayer\", \"-I$(CURDIR)/workspace/all/mediaplayer/include\", \"-I$(CURDIR)/workspace/all/include\", \"-DMBEDTLS_CONFIG_FILE=<mbedtls_config.h>\", \"-DOPUS_BUILD\", \"-DHAVE_LRINTF\", \"-DOP_DISABLE_HTTP\", \"-DOP_DISABLE_FLOAT_API\", "; \
+				extra_flags="\"-I$(CURDIR)/workspace/all/mediaplayer\", \"-I$(CURDIR)/workspace/all/include\", \"-I$(CURDIR)/workspace/all/include/mbedtls_lib\", \"-DMBEDTLS_CONFIG_FILE=<mbedtls_config.h>\", \"-DOPUS_BUILD\", \"-DHAVE_LRINTF\", \"-DOP_DISABLE_HTTP\", \"-DOP_DISABLE_FLOAT_API\", "; \
 				;; \
 		esac; \
 		if [ "$$first" = "1" ]; then first=0; else echo ',' >> compile_commands.json; fi; \

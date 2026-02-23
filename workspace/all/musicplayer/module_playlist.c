@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "defines.h"
 #include "api.h"
 #include "module_common.h"
+#include "ui_toast.h"
 #include "module_playlist.h"
 #include "module_player.h"
 #include "playlist_m3u.h"
@@ -13,7 +13,7 @@
 #include "ui_keyboard.h"
 #include "ui_components.h"
 #include "ui_playlist.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Internal states
 typedef enum {
@@ -257,11 +257,11 @@ ModuleExitReason PlaylistModule_run(SDL_Surface* screen) {
 
 			if (state == PLAYLIST_INTERNAL_LIST) {
 				int items_per_page = UI_calcListLayout(screen).items_per_page;
-				adjust_list_scroll(list_selected, &list_scroll, items_per_page);
+				UI_adjustListScroll(list_selected, &list_scroll, items_per_page);
 				render_playlist_list(screen, show_setting, playlists, playlist_count, list_selected, list_scroll);
 			} else {
 				int items_per_page = UI_calcListLayout(screen).items_per_page;
-				adjust_list_scroll(detail_selected, &detail_scroll, items_per_page);
+				UI_adjustListScroll(detail_selected, &detail_scroll, items_per_page);
 				render_playlist_detail(screen, show_setting, playlists[current_playlist_index].name,
 									   detail_tracks, detail_track_count, detail_selected, detail_scroll);
 			}

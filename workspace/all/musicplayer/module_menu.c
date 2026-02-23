@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-
 #include "defines.h"
 #include "api.h"
 #include "module_common.h"

@@ -12,12 +12,11 @@
 #include "podcast.h"
 #include "player.h"
 #include "ui_podcast.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 #include "ui_toast.h"
 #include "ui_icons.h"
 #include "ui_album_art.h"
 #include "wget_fetch.h"
-#include "module_common.h"
 
 // Max artwork size (1MB to match radio album art buffer)
 #define PODCAST_ARTWORK_MAX_SIZE (1024 * 1024)
@@ -613,7 +612,7 @@ static ListItemRichPos render_rich_list_item(SDL_Surface* screen, ListLayout* la
 	SDL_Surface* thumb = cache_key ? find_cached_thumbnail(cache_key) : NULL;
 	bool has_image = (thumb != NULL);
 
-	ListItemRichPos pos = render_list_item_pill_rich(screen, layout, title, subtitle, truncated, y, selected, has_image, extra_subtitle_width);
+	ListItemRichPos pos = UI_renderListItemPillRich(screen, layout, title, subtitle, truncated, y, selected, has_image, extra_subtitle_width);
 
 	if (thumb) {
 		SDL_Rect dst = {pos.image_x, pos.image_y, pos.image_size, pos.image_size};
@@ -843,7 +842,7 @@ void render_podcast_main_page(SDL_Surface* screen, IndicatorType show_setting,
 			snprintf(dl_subtitle, sizeof(dl_subtitle), "%d Episode%s", dl_queue_count, dl_queue_count != 1 ? "s" : "");
 
 			char truncated_dl[256];
-			ListItemBadgedPos pos = render_list_item_pill_badged(screen, &pill_layout, "Downloads", dl_subtitle, truncated_dl, y, dl_selected, 0, 0);
+			ListItemBadgedPos pos = UI_renderListItemPillBadged(screen, &pill_layout, font.medium, font.small, font.tiny, "Downloads", dl_subtitle, truncated_dl, y, dl_selected, 0, 0);
 
 			UI_renderListItemText(screen, dl_selected ? &podcast_title_scroll : NULL,
 								  "Downloads", font.medium,
@@ -896,7 +895,7 @@ void render_podcast_manage(SDL_Surface* screen, IndicatorType show_setting,
 		const char* item_label = podcast_manage_items[i];
 
 		// Render menu item pill
-		MenuItemPos pos = render_menu_item_pill(screen, &layout, item_label, truncated, i, selected, 0);
+		MenuItemPos pos = UI_renderMenuItemPill(screen, &layout, item_label, truncated, i, selected, 0);
 
 		// Render text using standard list item text (consistent colors and font)
 		UI_renderListItemText(screen, NULL, truncated, font.large,
@@ -951,7 +950,7 @@ void render_podcast_top_shows(SDL_Surface* screen, IndicatorType show_setting,
 	ListLayout layout = UI_calcListLayout(screen);
 	layout.item_h = SCALE1(PILL_SIZE) * 3 / 2;
 	layout.items_per_page = layout.list_h / layout.item_h;
-	adjust_list_scroll(selected, scroll, layout.items_per_page);
+	UI_adjustListScroll(selected, scroll, layout.items_per_page);
 
 	int thumb_size = SCALE1(PILL_SIZE) * 3 / 2 - SCALE1(4) * 2; // same as image_size in pill_rich
 	for (int i = 0; i < layout.items_per_page && *scroll + i < count; i++) {
@@ -972,7 +971,7 @@ void render_podcast_top_shows(SDL_Surface* screen, IndicatorType show_setting,
 			break;
 	}
 
-	render_scroll_indicators(screen, *scroll, layout.items_per_page, count);
+	UI_renderScrollIndicators(screen, *scroll, layout.items_per_page, count);
 
 	// Check if selected item is already subscribed (by iTunes ID)
 	bool selected_is_subscribed = false;
@@ -1030,7 +1029,7 @@ void render_podcast_search_results(SDL_Surface* screen, IndicatorType show_setti
 	ListLayout layout = UI_calcListLayout(screen);
 	layout.item_h = SCALE1(PILL_SIZE) * 3 / 2;
 	layout.items_per_page = layout.list_h / layout.item_h;
-	adjust_list_scroll(selected, scroll, layout.items_per_page);
+	UI_adjustListScroll(selected, scroll, layout.items_per_page);
 
 	// Check if selected item is already subscribed
 	bool selected_is_subscribed = false;
@@ -1057,7 +1056,7 @@ void render_podcast_search_results(SDL_Surface* screen, IndicatorType show_setti
 			break;
 	}
 
-	render_scroll_indicators(screen, *scroll, layout.items_per_page, count);
+	UI_renderScrollIndicators(screen, *scroll, layout.items_per_page, count);
 
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", selected_is_subscribed ? "UNSUBSCRIBE" : "SUBSCRIBE", NULL});
 
@@ -1337,7 +1336,7 @@ void render_podcast_episodes(SDL_Surface* screen, IndicatorType show_setting,
 		int badge_width = num_badges > 0 ? num_badges * badge_icon_size : 0;
 
 		// Two-layer capsule pill with subtitle inside
-		ListItemBadgedPos pos = render_list_item_pill_badged(screen, &layout, ep->title, NULL, truncated, y, is_selected, badge_width, 0);
+		ListItemBadgedPos pos = UI_renderListItemPillBadged(screen, &layout, font.medium, font.small, font.tiny, ep->title, NULL, truncated, y, is_selected, badge_width, 0);
 
 		// Title text (row 1)
 		UI_renderListItemText(screen, is_selected ? &podcast_title_scroll : NULL,
@@ -1541,7 +1540,7 @@ void render_podcast_download_queue(SDL_Surface* screen, IndicatorType show_setti
 	layout.items_per_page = layout.list_h / layout.item_h;
 	if (layout.items_per_page > 5)
 		layout.items_per_page = 5;
-	adjust_list_scroll(selected, scroll, layout.items_per_page);
+	UI_adjustListScroll(selected, scroll, layout.items_per_page);
 
 	for (int i = 0; i < layout.items_per_page && *scroll + i < queue_count; i++) {
 		int idx = *scroll + i;
@@ -1552,7 +1551,7 @@ void render_podcast_download_queue(SDL_Surface* screen, IndicatorType show_setti
 
 		// Two-layer pill with subtitle
 		int badge_width = 0;
-		ListItemBadgedPos pos = render_list_item_pill_badged(screen, &layout, item->episode_title, item->feed_title, truncated, y, is_selected, badge_width, 0);
+		ListItemBadgedPos pos = UI_renderListItemPillBadged(screen, &layout, font.medium, font.small, font.tiny, item->episode_title, item->feed_title, truncated, y, is_selected, badge_width, 0);
 
 		// Title text (row 1)
 		UI_renderListItemText(screen, is_selected ? &podcast_title_scroll : NULL,
@@ -1649,7 +1648,7 @@ void render_podcast_download_queue(SDL_Surface* screen, IndicatorType show_setti
 	}
 
 	// Scroll indicators
-	render_scroll_indicators(screen, *scroll, layout.items_per_page, queue_count);
+	UI_renderScrollIndicators(screen, *scroll, layout.items_per_page, queue_count);
 
 	char* hint_pairs[16];
 	int h = 0;

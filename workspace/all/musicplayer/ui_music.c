@@ -6,6 +6,7 @@
 #include "ui_music.h"
 #include "ui_icons.h"
 #include "ui_utils.h"
+#include "ui_list.h"
 #include "ui_album_art.h"
 #include "spectrum.h"
 #include "lyrics.h"
@@ -51,7 +52,7 @@ void render_browser(SDL_Surface* screen, IndicatorType show_setting, BrowserCont
 	ListLayout layout = UI_calcListLayout(screen);
 	browser->items_per_page = layout.items_per_page;
 
-	adjust_list_scroll(browser->selected, &browser->scroll_offset, browser->items_per_page);
+	UI_adjustListScroll(browser->selected, &browser->scroll_offset, browser->items_per_page);
 
 	// Calculate icon size and spacing (icons are 24x24)
 	int icon_size = Icons_isLoaded() ? SCALE1(24) : 0;
@@ -121,7 +122,7 @@ void render_browser(SDL_Surface* screen, IndicatorType show_setting, BrowserCont
 							  text_x, pos.text_y, available_width, selected);
 	}
 
-	render_scroll_indicators(screen, browser->scroll_offset, browser->items_per_page, browser->entry_count);
+	UI_renderScrollIndicators(screen, browser->scroll_offset, browser->items_per_page, browser->entry_count);
 
 	// Button hints
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "SELECT", NULL});

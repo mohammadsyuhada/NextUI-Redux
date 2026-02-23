@@ -1,8 +1,9 @@
 #include <string.h>
 #include <msettings.h>
-#include "vp_defines.h"
 #include "api.h"
 #include "module_common.h"
+#include "ui_components.h"
+#include "ui_toast.h"
 #include "ui_main.h"
 
 static bool autosleep_disabled = false;
@@ -59,7 +60,7 @@ GlobalInputResult ModuleCommon_handleGlobalInput(SDL_Surface* screen, IndicatorT
 			return result;
 		}
 		// Dialog is shown, consume input and render (covers entire screen)
-		render_confirmation_dialog(screen, NULL, "Quit Media Player?");
+		UI_renderConfirmDialog(screen, "Quit Media Player?", NULL);
 		GFX_flip(screen);
 		result.input_consumed = true;
 		return result;

@@ -5,7 +5,7 @@
 #include "ui_main.h"
 #include "ui_components.h"
 #include "ui_fonts.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 #include "ui_toast.h"
 #include "module_menu.h"
 #include "resume.h"
@@ -140,7 +140,7 @@ void render_menu(SDL_Surface* screen, IndicatorType show_setting, int menu_selec
 		.render_badge = NULL,
 		.get_icon = NULL,
 		.render_text = main_menu_render_text};
-	render_simple_menu(screen, show_setting, menu_selected, &config);
+	UI_renderSimpleMenu(screen, menu_selected, &config);
 
 	// Toast notification
 	UI_renderToast(screen, toast_message, toast_time);

@@ -4,7 +4,7 @@
 #include <SDL2/SDL.h>
 #include "api.h"
 #include "youtube.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Carousel state for fullscreen thumbnail display
 typedef struct {

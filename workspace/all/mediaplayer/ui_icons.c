@@ -2,9 +2,7 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include "defines.h"
 #include "vp_defines.h"
-#include "api.h"
 #include "ui_icons.h"
 #include "ui_components.h"
 

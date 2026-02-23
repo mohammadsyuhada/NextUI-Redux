@@ -11,13 +11,11 @@
 #include "module_subscriptions.h"
 #include "youtube.h"
 #include "wifi.h"
-#include "keyboard.h"
+#include "ui_keyboard.h"
 #include "ffplay_engine.h"
 #include "subscriptions.h"
-#include "ui_components.h"
 #include "ui_youtube.h"
 #include "ui_icons.h"
-#include "ui_utils.h"
 
 // YouTube sub-menu selections
 #define YT_SUBMENU_SEARCH 0
@@ -42,7 +40,7 @@ static char subscribe_fetch_channel_id[64] = "";
 
 // Start a new search flow: keyboard -> WiFi -> yt-dlp
 static bool start_search(SDL_Surface* screen, IndicatorType show_setting) {
-	char* query = Keyboard_open("Search YouTube");
+	char* query = UIKeyboard_open("Search YouTube");
 
 	// Flush stale button state from keyboard (B press to exit keyboard
 	// would otherwise be detected by our main loop)

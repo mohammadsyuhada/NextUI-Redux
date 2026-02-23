@@ -2,7 +2,6 @@
 #define __MODULE_COMMON_H__
 
 #include "api.h"
-#include "ui_toast.h"
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 

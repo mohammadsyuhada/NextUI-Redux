@@ -5,7 +5,6 @@
 #include "ui_components.h"
 #include "ui_settings.h"
 #include "ui_list.h"
-#include "ui_utils.h"
 
 // Settings menu items
 #define SETTINGS_ITEM_UPDATE_YTDLP 5

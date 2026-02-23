@@ -3,8 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include "api.h"
-#include "iptv.h"
-#include "ui_utils.h"
+#include "ui_list.h"
 
 // Render user's channel list (main screen)
 void render_iptv_user_channels(SDL_Surface* screen, IndicatorType show_setting,

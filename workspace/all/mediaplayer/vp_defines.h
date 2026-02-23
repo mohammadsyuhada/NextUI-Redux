@@ -15,10 +15,6 @@
 #define APP_SUBSCRIPTIONS_FILE APP_DATA_DIR "/subscriptions.json"
 #define APP_YOUTUBE_DIR APP_DATA_DIR "/youtube"
 
-// App resource path (relative to pak root, which is cwd)
-// NOTE: Do not name this RES_PATH, which is used by the common defines.h for system resources
-#define APP_RES_PATH "res"
-
 #define FFPLAY_PATH SHARED_BIN_PATH "/ffplay"
 
 // Supported video file extensions

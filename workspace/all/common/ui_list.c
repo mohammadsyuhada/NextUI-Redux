@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include "ui_list.h"
+#include "ui_components.h"
 
 // Scroll gap for software scrolling
 #define SCROLL_GAP 30
@@ -581,6 +582,47 @@ int UI_renderSettingsRow(SDL_Surface* screen, ListLayout* layout,
 }
 
 // ============================================
+// GPU Scroll Without Background
+// ============================================
+
+void ScrollText_renderGPU_NoBg(ScrollTextState* state, TTF_Font* font,
+							   SDL_Color color, int x, int y) {
+	if (!state->text[0] || !state->needs_scroll || !state->cached_scroll_surface) {
+		PLAT_clearLayers(LAYER_SCROLLTEXT);
+		return;
+	}
+
+	state->last_x = x;
+	state->last_y = y;
+	state->last_font = font;
+	state->last_color = color;
+
+	int padding = SCALE1(SCROLL_GAP);
+	int height = state->cached_scroll_surface->h;
+
+	SDL_Surface* clipped = SDL_CreateRGBSurfaceWithFormat(0,
+														  state->max_width, height, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!clipped)
+		return;
+
+	SDL_FillRect(clipped, NULL, 0);
+	SDL_SetSurfaceBlendMode(state->cached_scroll_surface, SDL_BLENDMODE_NONE);
+	SDL_Rect src = {state->scroll_offset, 0, state->max_width, height};
+	SDL_BlitSurface(state->cached_scroll_surface, &src, clipped, NULL);
+
+	PLAT_clearLayers(LAYER_SCROLLTEXT);
+	PLAT_drawOnLayer(clipped, x, y, state->max_width, height, 1.0f, false, LAYER_SCROLLTEXT);
+	SDL_FreeSurface(clipped);
+
+	state->scroll_offset += 1;
+	if (state->scroll_offset >= state->text_width + padding) {
+		state->scroll_offset = 0;
+	}
+
+	PLAT_GPU_Flip();
+}
+
+// ============================================
 // Scroll Helpers
 // ============================================
 
@@ -654,4 +696,191 @@ int UI_pillAnimTick(PillAnimState* state) {
 
 bool UI_pillAnimIsActive(PillAnimState* state) {
 	return state->active;
+}
+
+// ============================================
+// Rich Pill Rendering
+// ============================================
+
+ListItemRichPos UI_renderListItemPillRich(SDL_Surface* screen, ListLayout* layout,
+										  const char* title, const char* subtitle,
+										  char* truncated,
+										  int y, bool selected, bool has_image,
+										  int extra_subtitle_width) {
+	ListItemRichPos pos;
+
+	int item_h = SCALE1(PILL_SIZE) * 3 / 2;
+	int img_padding = SCALE1(4);
+
+	int image_area_w;
+	if (has_image) {
+		pos.image_size = item_h - img_padding * 2;
+		image_area_w = img_padding + pos.image_size + SCALE1(BUTTON_PADDING);
+		pos.image_x = SCALE1(PADDING) + img_padding;
+		pos.image_y = y + img_padding;
+	} else {
+		pos.image_size = 0;
+		image_area_w = SCALE1(BUTTON_PADDING);
+		pos.image_x = 0;
+		pos.image_y = 0;
+	}
+
+	pos.pill_width = UI_calcListPillWidth(font.medium, title, truncated, layout->max_width, image_area_w);
+	if (subtitle && subtitle[0]) {
+		int sub_w;
+		TTF_SizeUTF8(font.small, subtitle, &sub_w, NULL);
+		int sub_pill_w = MIN(layout->max_width, image_area_w + sub_w + extra_subtitle_width + SCALE1(BUTTON_PADDING * 2));
+		if (sub_pill_w > pos.pill_width)
+			pos.pill_width = sub_pill_w;
+	}
+
+	if (selected) {
+		int px = SCALE1(PADDING);
+		int pw = pos.pill_width;
+		int r = item_h / 3;
+		if (r > pw / 2)
+			r = pw / 2;
+
+		if (item_h - 2 * r > 0) {
+			SDL_FillRect(screen, &(SDL_Rect){px, y + r, pw, item_h - 2 * r}, THEME_COLOR1);
+		}
+		for (int dy = 0; dy < r; dy++) {
+			int yd = r - dy;
+			int inset = r - (int)sqrtf((float)(r * r - yd * yd));
+			int row_w = pw - 2 * inset;
+			if (row_w <= 0)
+				continue;
+			SDL_FillRect(screen, &(SDL_Rect){px + inset, y + dy, row_w, 1}, THEME_COLOR1);
+			SDL_FillRect(screen, &(SDL_Rect){px + inset, y + item_h - 1 - dy, row_w, 1}, THEME_COLOR1);
+		}
+	}
+
+	int text_start_x = SCALE1(PADDING) + image_area_w;
+	int medium_h = TTF_FontHeight(font.medium);
+	int small_h = TTF_FontHeight(font.small);
+	int total_text_h = medium_h + small_h;
+	int top_gap = (item_h - total_text_h) / 2;
+
+	pos.title_x = text_start_x;
+	pos.title_y = y + top_gap;
+
+	pos.subtitle_x = text_start_x;
+	pos.subtitle_y = y + top_gap + medium_h;
+
+	pos.text_max_width = pos.pill_width - image_area_w - SCALE1(BUTTON_PADDING);
+
+	return pos;
+}
+
+// ============================================
+// Menu Item Pill Rendering
+// ============================================
+
+MenuItemPos UI_renderMenuItemPill(SDL_Surface* screen, ListLayout* layout,
+								  const char* text, char* truncated,
+								  int index, bool selected, int prefix_width) {
+	MenuItemPos pos;
+
+	int item_h = SCALE1(PILL_SIZE);
+	pos.item_y = layout->list_y + index * item_h;
+
+	pos.pill_width = UI_calcListPillWidth(font.large, text, truncated, layout->max_width - prefix_width, prefix_width);
+
+	SDL_Rect pill_rect = {SCALE1(PADDING), pos.item_y, pos.pill_width, SCALE1(PILL_SIZE)};
+	UI_drawListItemBg(screen, &pill_rect, selected);
+
+	pos.text_x = SCALE1(PADDING) + SCALE1(BUTTON_PADDING);
+	pos.text_y = pos.item_y + (SCALE1(PILL_SIZE) - TTF_FontHeight(font.large)) / 2;
+
+	return pos;
+}
+
+// ============================================
+// Rounded Rectangle Background
+// ============================================
+
+void UI_renderRoundedRectBg(SDL_Surface* screen, int x, int y, int w, int h, uint32_t color) {
+	int r = SCALE1(7);
+	if (r > h / 2)
+		r = h / 2;
+	if (r > w / 2)
+		r = w / 2;
+
+	if (h - 2 * r > 0) {
+		SDL_FillRect(screen, &(SDL_Rect){x, y + r, w, h - 2 * r}, color);
+	}
+
+	for (int dy = 0; dy < r; dy++) {
+		int yd = r - dy;
+		int inset = r - (int)sqrtf((float)(r * r - yd * yd));
+		int row_w = w - 2 * inset;
+		if (row_w <= 0)
+			continue;
+		SDL_FillRect(screen, &(SDL_Rect){x + inset, y + dy, row_w, 1}, color);
+		SDL_FillRect(screen, &(SDL_Rect){x + inset, y + h - 1 - dy, row_w, 1}, color);
+	}
+}
+
+// ============================================
+// Generic Simple Menu Rendering
+// ============================================
+
+void UI_renderSimpleMenu(SDL_Surface* screen, int menu_selected,
+						 const SimpleMenuConfig* config) {
+	GFX_clear(screen);
+	char truncated[256];
+	char label_buffer[256];
+
+	UI_renderMenuBar(screen, config->title);
+	ListLayout layout = UI_calcListLayout(screen);
+
+	int icon_size = SCALE1(24);
+	int icon_spacing = SCALE1(6);
+
+	for (int i = 0; i < config->item_count; i++) {
+		bool selected = (i == menu_selected);
+
+		const char* label = (config->items) ? config->items[i] : "";
+		if (config->get_label) {
+			const char* custom = config->get_label(i, label, label_buffer, sizeof(label_buffer));
+			if (custom)
+				label = custom;
+		}
+
+		SDL_Surface* icon = NULL;
+		int icon_offset = 0;
+		if (config->get_icon) {
+			icon = config->get_icon(i, selected);
+			if (icon) {
+				icon_offset = icon_size + icon_spacing;
+			}
+		}
+
+		MenuItemPos pos = UI_renderMenuItemPill(screen, &layout, label, truncated, i, selected, icon_offset);
+
+		int text_x = pos.text_x;
+		if (icon) {
+			int icon_y = pos.item_y + (SCALE1(PILL_SIZE) - icon_size) / 2;
+			SDL_Rect src_rect = {0, 0, icon->w, icon->h};
+			SDL_Rect dst_rect = {pos.text_x, icon_y, icon_size, icon_size};
+			SDL_BlitScaled(icon, &src_rect, screen, &dst_rect);
+			text_x += icon_offset;
+		}
+
+		bool custom_rendered = false;
+		if (config->render_text) {
+			custom_rendered = config->render_text(screen, i, selected,
+												  text_x, pos.text_y, layout.max_width - icon_offset);
+		}
+		if (!custom_rendered) {
+			UI_renderListItemText(screen, NULL, truncated, font.large,
+								  text_x, pos.text_y, layout.max_width - icon_offset, selected);
+		}
+
+		if (config->render_badge) {
+			config->render_badge(screen, i, selected, pos.item_y, SCALE1(PILL_SIZE));
+		}
+	}
+
+	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", (char*)config->btn_b_label, "A", "OPEN", NULL});
 }

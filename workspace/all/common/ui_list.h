@@ -160,4 +160,83 @@ void UI_pillAnimSetTarget(PillAnimState* state, int target_y, bool animate);
 int UI_pillAnimTick(PillAnimState* state);
 bool UI_pillAnimIsActive(PillAnimState* state);
 
+// ---- Rich Pill Rendering ----
+
+// Position information returned by UI_renderListItemPillRich
+typedef struct {
+	int pill_width;				// Width of the rendered pill
+	int title_x, title_y;		// Row 1 position (medium font)
+	int subtitle_x, subtitle_y; // Row 2 position (small font)
+	int image_x, image_y;		// Image position (top-left corner)
+	int image_size;				// Image width & height (square)
+	int text_max_width;			// Max width for text (for scrolling)
+} ListItemRichPos;
+
+// Render a 2-row list item pill with image area on the left
+// Height is 1.5x PILL_SIZE. Image is square, vertically centered.
+// Row 1: title (medium font), Row 2: subtitle (small font)
+// Caller renders image at image_x/image_y and text via UI_renderListItemText()
+ListItemRichPos UI_renderListItemPillRich(SDL_Surface* screen, ListLayout* layout,
+										  const char* title, const char* subtitle,
+										  char* truncated,
+										  int y, bool selected, bool has_image,
+										  int extra_subtitle_width);
+
+// ---- Menu Item Pill Rendering ----
+
+// Position information returned by UI_renderMenuItemPill
+typedef struct {
+	int pill_width; // Width of the rendered pill
+	int text_x;		// X position for text (after padding)
+	int text_y;		// Y position for text (vertically centered in pill)
+	int item_y;		// Y position of this menu item
+} MenuItemPos;
+
+// Render a menu item's pill background and calculate text position
+// Menu items use PILL_SIZE height. index: menu item index (0-based)
+// prefix_width: extra width to account for (e.g., icon)
+MenuItemPos UI_renderMenuItemPill(SDL_Surface* screen, ListLayout* layout,
+								  const char* text, char* truncated,
+								  int index, bool selected, int prefix_width);
+
+// ---- Rounded Rectangle Background ----
+
+// Render a filled rounded rectangle background
+// Works at any height (unlike pill asset which requires PILL_SIZE)
+void UI_renderRoundedRectBg(SDL_Surface* screen, int x, int y, int w, int h, uint32_t color);
+
+// ---- Generic Simple Menu Rendering ----
+
+// Callback to customize item label
+typedef const char* (*MenuItemLabelCallback)(int index, const char* default_label,
+											 char* buffer, int buffer_size);
+
+// Callback to render right-side badge
+typedef void (*MenuItemBadgeCallback)(SDL_Surface* screen, int index, bool selected,
+									  int item_y, int item_h);
+
+// Callback to get icon for a menu item
+typedef SDL_Surface* (*MenuItemIconCallback)(int index, bool selected);
+
+// Callback for custom text rendering
+// Return true if custom rendering was handled, false to use default
+typedef bool (*MenuItemCustomTextCallback)(SDL_Surface* screen, int index, bool selected,
+										   int text_x, int text_y, int max_text_width);
+
+// Configuration for generic simple menu rendering
+typedef struct {
+	const char* title;						// Header title
+	const char** items;						// Array of menu item labels (can be NULL if get_label provided)
+	int item_count;							// Number of items
+	const char* btn_b_label;				// B button label ("EXIT", "BACK", etc.)
+	MenuItemLabelCallback get_label;		// Optional: customize item label
+	MenuItemBadgeCallback render_badge;		// Optional: render right-side badge
+	MenuItemIconCallback get_icon;			// Optional: get icon for item
+	MenuItemCustomTextCallback render_text; // Optional: custom text rendering
+} SimpleMenuConfig;
+
+// Render a simple menu with optional customization callbacks
+void UI_renderSimpleMenu(SDL_Surface* screen, int menu_selected,
+						 const SimpleMenuConfig* config);
+
 #endif // UI_LIST_H

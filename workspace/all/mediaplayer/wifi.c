@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "vp_defines.h"
 #include "api.h"
 #include "wifi.h"
 

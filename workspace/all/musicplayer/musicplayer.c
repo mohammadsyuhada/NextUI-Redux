@@ -8,14 +8,10 @@
 #include <msettings.h>
 
 #include "psa/crypto.h"
-#include "defines.h"
 #include "api.h"
-#include "utils.h"
-#include "config.h"
 #include "player.h"
 
 // UI modules
-#include "ui_fonts.h"
 #include "ui_icons.h"
 #include "ui_components.h"
 
