@@ -13,6 +13,7 @@
 #include "player.h"
 #include "ui_podcast.h"
 #include "ui_utils.h"
+#include "ui_toast.h"
 #include "ui_icons.h"
 #include "ui_album_art.h"
 #include "wget_fetch.h"
@@ -874,7 +875,7 @@ void render_podcast_main_page(SDL_Surface* screen, IndicatorType show_setting,
 	}
 
 	// Toast
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Render the podcast management menu (Y button opens this)
@@ -982,7 +983,7 @@ void render_podcast_top_shows(SDL_Surface* screen, IndicatorType show_setting,
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", selected_is_subscribed ? "UNSUBSCRIBE" : "SUBSCRIBE", NULL});
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Render search results
@@ -1061,7 +1062,7 @@ void render_podcast_search_results(SDL_Surface* screen, IndicatorType show_setti
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", selected_is_subscribed ? "UNSUBSCRIBE" : "SUBSCRIBE", NULL});
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Render episode list for a feed
@@ -1468,7 +1469,7 @@ void render_podcast_episodes(SDL_Surface* screen, IndicatorType show_setting,
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", (char*)action_label, "Y", "REFRESH", NULL});
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Format download speed for display
@@ -1530,7 +1531,7 @@ void render_podcast_download_queue(SDL_Surface* screen, IndicatorType show_setti
 			SDL_FreeSurface(text);
 		}
 		UI_renderButtonHintBar(screen, (char*[]){"B", "BACK", NULL});
-		render_toast(screen, toast_message, toast_time);
+		UI_renderToast(screen, toast_message, toast_time);
 		return;
 	}
 
@@ -1664,7 +1665,7 @@ void render_podcast_download_queue(SDL_Surface* screen, IndicatorType show_setti
 	UI_renderButtonHintBar(screen, hint_pairs);
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Render now playing screen for podcast (matches radio/music player style)

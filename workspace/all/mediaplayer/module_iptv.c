@@ -203,7 +203,7 @@ ModuleExitReason IPTVModule_run(SDL_Surface* screen) {
 				dirty = 1;
 			} else if (PAD_justPressed(BTN_B)) {
 				curated_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = IPTV_STATE_CURATED_COUNTRIES;
 				dirty = 1;
 				continue;

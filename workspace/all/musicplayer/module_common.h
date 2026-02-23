@@ -5,9 +5,7 @@
 #include <stdbool.h>
 #include "api.h"
 #include "player.h"
-
-// Toast duration for all modules (3 seconds)
-#define TOAST_DURATION 3000
+#include "ui_toast.h"
 
 // Screen off hint duration (time hint is shown before screen turns off)
 #define SCREEN_OFF_HINT_DURATION_MS 4000

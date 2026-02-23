@@ -7,6 +7,7 @@
 #include "ui_downloader.h"
 #include "ui_fonts.h"
 #include "ui_utils.h"
+#include "ui_toast.h"
 
 // Scroll text state for YouTube results (selected item)
 static ScrollTextState downloader_results_scroll_text = {0};
@@ -71,7 +72,7 @@ void render_downloader_menu(SDL_Surface* screen, IndicatorType show_setting, int
 	render_simple_menu(screen, show_setting, menu_selected, &config);
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Render YouTube searching status
@@ -201,7 +202,7 @@ void render_downloader_results(SDL_Surface* screen, IndicatorType show_setting,
 	}
 
 	// Toast notification (rendered to GPU layer above scroll text)
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 
 	// Button hints
 	// Dynamic hint based on queue status (only show A action if item is selected)
@@ -416,5 +417,5 @@ void downloader_queue_clear_scroll(void) {
 void downloader_results_clear_scroll(void) {
 	memset(&downloader_results_scroll_text, 0, sizeof(downloader_results_scroll_text));
 	GFX_clearLayers(LAYER_SCROLLTEXT);
-	clear_toast();
+	UI_clearToast();
 }

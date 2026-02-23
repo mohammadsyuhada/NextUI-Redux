@@ -6,6 +6,7 @@
 #include "ui_components.h"
 #include "ui_fonts.h"
 #include "ui_utils.h"
+#include "ui_toast.h"
 #include "module_menu.h"
 #include "resume.h"
 #include "background.h"
@@ -142,7 +143,7 @@ void render_menu(SDL_Surface* screen, IndicatorType show_setting, int menu_selec
 	render_simple_menu(screen, show_setting, menu_selected, &config);
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 }
 
 // Controls help text for each page/state

@@ -34,7 +34,7 @@ static void render_library_menu(SDL_Surface* screen, IndicatorType show_setting,
 		.render_badge = NULL,
 		.get_icon = NULL};
 	render_simple_menu(screen, show_setting, menu_selected, &config);
-	render_toast(screen, library_toast_message, library_toast_time);
+	UI_renderToast(screen, library_toast_message, library_toast_time);
 }
 
 void LibraryModule_setToast(const char* message) {

@@ -575,7 +575,7 @@ ModuleExitReason PlayerModule_run(SDL_Surface* screen) {
 		if (atp_toast && atp_toast[0]) {
 			if (SDL_GetTicks() - AddToPlaylist_getToastTime() > TOAST_DURATION) {
 				AddToPlaylist_clearToast();
-				clear_toast();
+				UI_clearToast();
 			}
 			dirty = 1;
 		}
@@ -596,7 +596,7 @@ ModuleExitReason PlayerModule_run(SDL_Surface* screen) {
 			// Show add-to-playlist toast (if still active after auto-clear check)
 			atp_toast = AddToPlaylist_getToastMessage();
 			if (atp_toast && atp_toast[0]) {
-				render_toast(screen, atp_toast, AddToPlaylist_getToastTime());
+				UI_renderToast(screen, atp_toast, AddToPlaylist_getToastTime());
 			}
 
 			GFX_flip(screen);
@@ -871,7 +871,7 @@ ModuleExitReason PlayerModule_runWithPlaylist(SDL_Surface* screen,
 		if (atp_toast && atp_toast[0]) {
 			if (SDL_GetTicks() - AddToPlaylist_getToastTime() > TOAST_DURATION) {
 				AddToPlaylist_clearToast();
-				clear_toast();
+				UI_clearToast();
 			}
 			dirty = 1;
 		}
@@ -890,7 +890,7 @@ ModuleExitReason PlayerModule_runWithPlaylist(SDL_Surface* screen,
 			// Show add-to-playlist toast (if still active after auto-clear check)
 			atp_toast = AddToPlaylist_getToastMessage();
 			if (atp_toast && atp_toast[0]) {
-				render_toast(screen, atp_toast, AddToPlaylist_getToastTime());
+				UI_renderToast(screen, atp_toast, AddToPlaylist_getToastTime());
 			}
 
 			GFX_flip(screen);
@@ -1008,7 +1008,7 @@ ModuleExitReason PlayerModule_runResume(SDL_Surface* screen, const ResumeState* 
 			if (atp_toast && atp_toast[0]) {
 				if (SDL_GetTicks() - AddToPlaylist_getToastTime() > TOAST_DURATION) {
 					AddToPlaylist_clearToast();
-					clear_toast();
+					UI_clearToast();
 				}
 				dirty = 1;
 			}
@@ -1026,7 +1026,7 @@ ModuleExitReason PlayerModule_runResume(SDL_Surface* screen, const ResumeState* 
 
 				atp_toast = AddToPlaylist_getToastMessage();
 				if (atp_toast && atp_toast[0]) {
-					render_toast(screen, atp_toast, AddToPlaylist_getToastTime());
+					UI_renderToast(screen, atp_toast, AddToPlaylist_getToastTime());
 				}
 
 				GFX_flip(screen);

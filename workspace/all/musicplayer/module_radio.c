@@ -443,7 +443,7 @@ ModuleExitReason RadioModule_run(SDL_Surface* screen) {
 				dirty = 1;
 			} else if (PAD_justPressed(BTN_B)) {
 				radio_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = RADIO_INTERNAL_ADD_COUNTRY;
 				dirty = 1;
 			}

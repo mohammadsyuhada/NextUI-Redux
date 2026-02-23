@@ -2,10 +2,9 @@
 #define __MODULE_COMMON_H__
 
 #include "api.h"
+#include "ui_toast.h"
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-
-#define TOAST_DURATION 3000
 
 typedef enum {
 	MODULE_EXIT_TO_MENU,

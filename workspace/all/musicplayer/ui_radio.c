@@ -7,6 +7,7 @@
 #include "ui_radio.h"
 #include "ui_fonts.h"
 #include "ui_utils.h"
+#include "ui_toast.h"
 #include "ui_album_art.h"
 #include "album_art.h"
 #include "radio_curated.h"
@@ -84,7 +85,7 @@ void render_radio_list(SDL_Surface* screen, IndicatorType show_setting,
 	}
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 
 	// Button hints
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", "PLAY", NULL});
@@ -453,7 +454,7 @@ void render_radio_add_stations(SDL_Surface* screen, IndicatorType show_setting,
 	render_scroll_indicators(screen, *add_station_scroll, layout.items_per_page, sorted_count);
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 
 	// Button hints - dynamic based on whether selected station is already added
 	UI_renderButtonHintBar(screen, (char*[]){"START", "CONTROLS", "B", "BACK", "A", selected_exists ? "REMOVE" : "ADD", NULL});

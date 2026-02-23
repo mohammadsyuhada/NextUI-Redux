@@ -8,6 +8,7 @@
 #include "ui_iptv.h"
 #include "ui_fonts.h"
 #include "ui_utils.h"
+#include "ui_toast.h"
 #include "iptv.h"
 #include "iptv_curated.h"
 
@@ -200,7 +201,7 @@ void render_iptv_curated_channels(SDL_Surface* screen, IndicatorType show_settin
 	render_scroll_indicators(screen, *scroll_offset, layout.items_per_page, sorted_count);
 
 	// Toast notification
-	render_toast(screen, toast_message, toast_time);
+	UI_renderToast(screen, toast_message, toast_time);
 
 	// Button hints - dynamic based on whether selected channel is already added
 	if (selected_exists) {

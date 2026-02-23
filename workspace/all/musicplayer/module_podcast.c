@@ -266,7 +266,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 					podcast_queue_scroll = 0;
 					Podcast_clearTitleScroll();
 					podcast_toast_message[0] = '\0';
-					clear_toast();
+					UI_clearToast();
 					state = PODCAST_INTERNAL_DOWNLOAD_QUEUE;
 					dirty = 1;
 				} else if (podcast_menu_selected < cl_count) {
@@ -326,7 +326,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 					podcast_episodes_scroll = 0;
 					Podcast_clearTitleScroll();
 					podcast_toast_message[0] = '\0';
-					clear_toast();
+					UI_clearToast();
 					state = PODCAST_INTERNAL_EPISODES;
 				}
 				dirty = 1;
@@ -349,13 +349,13 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 				podcast_manage_selected = 0;
 				podcast_toast_message[0] = '\0';
 				Podcast_clearTitleScroll();
-				clear_toast();
+				UI_clearToast();
 				state = PODCAST_INTERNAL_MANAGE;
 				dirty = 1;
 			} else if (PAD_justPressed(BTN_B)) {
 				podcast_toast_message[0] = '\0';
 				Podcast_clearTitleScroll();
-				clear_toast();
+				UI_clearToast();
 				if (Podcast_isActive() || Podcast_isDownloading()) {
 					Podcast_saveSubscriptions();
 					Podcast_flushProgress();
@@ -509,7 +509,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 			if (PAD_justPressed(BTN_B)) {
 				Podcast_clearTitleScroll();
 				podcast_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = PODCAST_INTERNAL_MANAGE;
 				dirty = 1;
 			}
@@ -588,7 +588,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 				Podcast_clearTitleScroll();
 				Podcast_cancelSearch();
 				podcast_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = PODCAST_INTERNAL_MANAGE;
 				dirty = 1;
 			}
@@ -730,7 +730,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 			} else if (PAD_justPressed(BTN_B)) {
 				Podcast_clearTitleScroll();
 				podcast_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = PODCAST_INTERNAL_MENU;
 				dirty = 1;
 			}
@@ -798,7 +798,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 			} else if (PAD_justPressed(BTN_B)) {
 				Podcast_clearTitleScroll();
 				podcast_toast_message[0] = '\0';
-				clear_toast();
+				UI_clearToast();
 				state = PODCAST_INTERNAL_MENU;
 				dirty = 1;
 			}
@@ -815,7 +815,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 			if (!Player_resume()) {
 				// Seek complete — start playback
 				Player_play();
-				render_toast(screen, "", 0); // Clear the "Resuming..." toast
+				UI_renderToast(screen, "", 0); // Clear the "Resuming..." toast
 				ModuleCommon_recordInputTime();
 				last_progress_save_time = SDL_GetTicks();
 				state = PODCAST_INTERNAL_PLAYING;
@@ -1009,7 +1009,7 @@ ModuleExitReason PodcastModule_run(SDL_Surface* screen) {
 						} else {
 							snprintf(seek_msg, sizeof(seek_msg), "Resuming...");
 						}
-						render_toast(screen, seek_msg, SDL_GetTicks());
+						UI_renderToast(screen, seek_msg, SDL_GetTicks());
 					}
 					break;
 				case PODCAST_INTERNAL_PLAYING:

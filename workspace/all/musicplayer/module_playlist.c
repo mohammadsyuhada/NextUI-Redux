@@ -267,7 +267,7 @@ ModuleExitReason PlaylistModule_run(SDL_Surface* screen) {
 			}
 
 			// Toast
-			render_toast(screen, playlist_toast_message, playlist_toast_time);
+			UI_renderToast(screen, playlist_toast_message, playlist_toast_time);
 
 			GFX_flip(screen);
 			dirty = 0;

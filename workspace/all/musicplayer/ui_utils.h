@@ -91,12 +91,6 @@ void render_simple_menu(SDL_Surface* screen, IndicatorType show_setting, int men
 
 void render_rounded_rect_bg(SDL_Surface* screen, int x, int y, int w, int h, uint32_t color);
 
-// ============================================
-// Toast Notification
-// ============================================
-
-void render_toast(SDL_Surface* screen, const char* message, uint32_t toast_time);
-void clear_toast(void);
 
 // ============================================
 // Dialog Box

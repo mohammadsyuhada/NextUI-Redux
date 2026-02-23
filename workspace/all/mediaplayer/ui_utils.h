@@ -110,16 +110,6 @@ void render_simple_menu(SDL_Surface* screen, IndicatorType show_setting, int men
 // Uses two overlapping rects to create corner inset effect
 void render_rounded_rect_bg(SDL_Surface* screen, int x, int y, int w, int h, uint32_t color);
 
-// ============================================
-// Toast Notification (GPU layer, highest z-index)
-// ============================================
-
-// Render toast notification to GPU layer (above all other content including scroll text)
-// Call this at the end of your render function. Toast auto-hides after TOAST_DURATION.
-void render_toast(SDL_Surface* screen, const char* message, uint32_t toast_time);
-
-// Clear toast from GPU layer (call when leaving screen or clearing state)
-void clear_toast(void);
 
 // ============================================
 // Dialog Box
