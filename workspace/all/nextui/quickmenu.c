@@ -10,6 +10,11 @@
 #include "api.h"
 #include <msettings.h>
 #include <pthread.h>
+#include <signal.h>
+#include <unistd.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 static Array* quick;		// EntryArray
 static Array* quickActions; // EntryArray
@@ -58,6 +63,189 @@ static void qm_toggle_with_overlay(void (*fn)(bool), int enable, const char* tit
 
 	if (bg)
 		SDL_FreeSurface(bg);
+}
+
+// ============================================
+// Screen recording helpers
+// ============================================
+
+#define SCREENREC_PID_FILE "/tmp/screenrecorder.pid"
+#define SCREENREC_DIR SDCARD_PATH "/Videos/Recordings"
+#define SCREENREC_FFMPEG "/usr/bin/ffmpeg"
+#define SCREENREC_ICON_PATH RES_PATH "/icon-record.png"
+
+static SDL_Surface* icon_record = NULL;
+
+static SDL_Surface* qm_get_record_icon(void) {
+	if (!icon_record) {
+		SDL_Surface* raw = IMG_Load(SCREENREC_ICON_PATH);
+		if (raw)
+			icon_record = UI_convertSurface(raw, screen);
+	}
+	return icon_record;
+}
+
+static bool qm_is_recording(void) {
+	FILE* f = fopen(SCREENREC_PID_FILE, "r");
+	if (!f)
+		return false;
+	int pid = 0;
+	fscanf(f, "%d", &pid);
+	fclose(f);
+	if (pid <= 0)
+		return false;
+	return kill(pid, 0) == 0;
+}
+
+static bool qm_start_recording(void) {
+	mkdir_p(SCREENREC_DIR);
+
+	time_t now = time(NULL);
+	struct tm* t = localtime(&now);
+	char output[MAX_PATH];
+	snprintf(output, sizeof(output),
+			 SCREENREC_DIR "/REC_%04d%02d%02d_%02d%02d%02d.avi",
+			 t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+			 t->tm_hour, t->tm_min, t->tm_sec);
+
+	pid_t pid = fork();
+	if (pid < 0)
+		return false;
+
+	if (pid == 0) {
+		setsid();
+		freopen("/dev/null", "r", stdin);
+		freopen("/dev/null", "w", stdout);
+		freopen("/dev/null", "w", stderr);
+		execl(SCREENREC_FFMPEG, "ffmpeg", "-nostdin",
+			  "-f", "fbdev", "-framerate", "15", "-i", "/dev/fb0",
+			  "-c:v", "mjpeg", "-q:v", "10",
+			  "-y", output,
+			  (char*)NULL);
+		_exit(1);
+	}
+
+	// Brief check that ffmpeg didn't die immediately
+	usleep(200000);
+	if (waitpid(pid, NULL, WNOHANG) != 0)
+		return false;
+
+	FILE* f = fopen(SCREENREC_PID_FILE, "w");
+	if (!f) {
+		kill(pid, SIGKILL);
+		waitpid(pid, NULL, WNOHANG);
+		return false;
+	}
+	fprintf(f, "%d", pid);
+	fclose(f);
+	return true;
+}
+
+static void qm_stop_recording(void) {
+	FILE* f = fopen(SCREENREC_PID_FILE, "r");
+	if (!f)
+		return;
+	int pid = 0;
+	fscanf(f, "%d", &pid);
+	fclose(f);
+	if (pid <= 0) {
+		remove(SCREENREC_PID_FILE);
+		return;
+	}
+
+	kill(pid, SIGINT);
+	for (int i = 0; i < 6; i++) {
+		usleep(500000);
+		int wr = waitpid(pid, NULL, WNOHANG);
+		if (wr == pid)
+			goto done;
+		if (wr < 0 && kill(pid, 0) != 0)
+			goto done;
+	}
+	kill(pid, SIGKILL);
+	waitpid(pid, NULL, WNOHANG);
+done:
+	remove(SCREENREC_PID_FILE);
+}
+
+// ============================================
+// Screenshot daemon helpers
+// ============================================
+
+#define SCREENSHOT_PID_FILE "/tmp/screenshot.pid"
+#define SCREENSHOT_ELF_PATH BIN_PATH "/screenshot.elf"
+#define SCREENSHOT_ICON_PATH RES_PATH "/icon-screenshot.png"
+
+static SDL_Surface* icon_screenshot = NULL;
+
+static SDL_Surface* qm_get_screenshot_icon(void) {
+	if (!icon_screenshot) {
+		SDL_Surface* raw = IMG_Load(SCREENSHOT_ICON_PATH);
+		if (raw)
+			icon_screenshot = UI_convertSurface(raw, screen);
+	}
+	return icon_screenshot;
+}
+
+static bool qm_is_screenshot_active(void) {
+	FILE* f = fopen(SCREENSHOT_PID_FILE, "r");
+	if (!f)
+		return false;
+	int pid = 0;
+	fscanf(f, "%d", &pid);
+	fclose(f);
+	if (pid <= 0)
+		return false;
+	return kill(pid, 0) == 0;
+}
+
+static bool qm_start_screenshot(void) {
+	pid_t pid = fork();
+	if (pid < 0)
+		return false;
+
+	if (pid == 0) {
+		setsid();
+		freopen("/dev/null", "r", stdin);
+		freopen("/dev/null", "w", stdout);
+		freopen("/dev/null", "w", stderr);
+		execl(SCREENSHOT_ELF_PATH, "screenshot", (char*)NULL);
+		_exit(1);
+	}
+
+	// Brief wait to ensure daemon started
+	usleep(200000);
+	if (waitpid(pid, NULL, WNOHANG) != 0)
+		return false;
+
+	return true;
+}
+
+static void qm_stop_screenshot(void) {
+	FILE* f = fopen(SCREENSHOT_PID_FILE, "r");
+	if (!f)
+		return;
+	int pid = 0;
+	fscanf(f, "%d", &pid);
+	fclose(f);
+	if (pid <= 0) {
+		remove(SCREENSHOT_PID_FILE);
+		return;
+	}
+
+	kill(pid, SIGTERM);
+	for (int i = 0; i < 6; i++) {
+		usleep(500000);
+		int wr = waitpid(pid, NULL, WNOHANG);
+		if (wr == pid)
+			goto ss_done;
+		if (wr < 0 && kill(pid, 0) != 0)
+			goto ss_done;
+	}
+	kill(pid, SIGKILL);
+	waitpid(pid, NULL, WNOHANG);
+ss_done:
+	remove(SCREENSHOT_PID_FILE);
 }
 
 #define MENU_ITEM_SIZE 72	 // item size, top line
@@ -116,6 +304,14 @@ void QuickMenu_init(int simple_mode) {
 void QuickMenu_quit(void) {
 	EntryArray_free(quick);
 	EntryArray_free(quickActions);
+	if (icon_record) {
+		SDL_FreeSurface(icon_record);
+		icon_record = NULL;
+	}
+	if (icon_screenshot) {
+		SDL_FreeSurface(icon_screenshot);
+		icon_screenshot = NULL;
+	}
 }
 
 void QuickMenu_resetSelection(void) {
@@ -181,6 +377,32 @@ QuickMenuResult QuickMenu_handleInput(unsigned long now) {
 				int enabling = !BT_enabled();
 				qm_toggle_with_overlay(BT_enable,
 									   enabling, enabling ? "Enabling Bluetooth..." : "Disabling Bluetooth...");
+				result.dirty = true;
+			} else if (selected->type == ENTRY_DIP && selected->quickId == QUICK_SCREENRECORD) {
+				if (qm_is_recording()) {
+					qm_stop_recording();
+					// Rebuild toggles to update label
+					EntryArray_free(quickActions);
+					quickActions = getQuickToggles(qm_simple_mode);
+					qm_col = 0;
+					result.dirty = true;
+				} else {
+					qm_start_recording();
+					// Close quick menu after starting
+					result.screen = SCREEN_GAMELIST;
+					result.folderbgchanged = true;
+					result.dirty = true;
+				}
+			} else if (selected->type == ENTRY_DIP && selected->quickId == QUICK_SCREENSHOT) {
+				if (qm_is_screenshot_active()) {
+					qm_stop_screenshot();
+				} else {
+					qm_start_screenshot();
+				}
+				// Rebuild toggles to update label
+				EntryArray_free(quickActions);
+				quickActions = getQuickToggles(qm_simple_mode);
+				qm_col = 0;
 				result.dirty = true;
 			} else {
 				if (selected->type != ENTRY_DIP) {
@@ -300,6 +522,9 @@ void QuickMenu_render(int lastScreen, IndicatorType show_setting, int ow,
 		GFX_clearLayers(LAYER_THUMBNAIL);
 		qm_refresh_wifi();
 		qm_refresh_devmode();
+		// Rebuild toggles to refresh recording state label
+		EntryArray_free(quickActions);
+		quickActions = getQuickToggles(qm_simple_mode);
 	}
 
 	Entry* current =
@@ -327,13 +552,17 @@ void QuickMenu_render(int lastScreen, IndicatorType show_setting, int ow,
 	// Button hints
 	bool is_toggle = (qm_row == QM_ROW_TOGGLES &&
 					  (current->quickId == QUICK_WIFI || current->quickId == QUICK_BLUETOOTH));
+	bool is_screenrec = (qm_row == QM_ROW_TOGGLES &&
+						 (current->quickId == QUICK_SCREENRECORD || current->quickId == QUICK_SCREENSHOT));
 	char* hints[9];
 	int hi = 0;
 	hints[hi++] = "B";
 	hints[hi++] = "BACK";
 	hints[hi++] = "A";
-	hints[hi++] = qm_row == QM_ROW_DEVMODE ? "TURN OFF" : is_toggle ? "TOGGLE"
-																	: "OPEN";
+	hints[hi++] = qm_row == QM_ROW_DEVMODE ? "TURN OFF"
+				  : is_screenrec		   ? ((current->quickId == QUICK_SCREENSHOT ? qm_is_screenshot_active() : qm_is_recording()) ? "STOP" : "START")
+				  : is_toggle			   ? "TOGGLE"
+										   : "OPEN";
 	if (is_toggle) {
 		hints[hi++] = "X";
 		hints[hi++] = "CONNECT";
@@ -341,20 +570,27 @@ void QuickMenu_render(int lastScreen, IndicatorType show_setting, int ow,
 	hints[hi] = NULL;
 	UI_renderButtonHintBar(screen, hints);
 
-	// Render WiFi IP as right-aligned text in the hint bar
+	// Render right-aligned hint text in the hint bar
+	const char* hint_text = NULL;
 	if (is_toggle && current->quickId == QUICK_WIFI &&
 		qm_cache_wifi_connected && qm_cache_wifi_ip[0] != '\0' &&
 		show_setting == INDICATOR_NONE) {
+		hint_text = qm_cache_wifi_ip;
+	} else if (qm_row == QM_ROW_TOGGLES && current->quickId == QUICK_SCREENSHOT &&
+			   show_setting == INDICATOR_NONE) {
+		hint_text = "L2+R2+X to capture when option active";
+	}
+	if (hint_text) {
 		int btn_sz = SCALE1(BUTTON_SIZE);
 		int bar_h = btn_sz + SCALE1(BUTTON_MARGIN * 2);
 		int bar_y = screen->h - bar_h;
-		SDL_Surface* ip_text = TTF_RenderUTF8_Blended(font.tiny, qm_cache_wifi_ip,
-													  uintToColour(THEME_COLOR6_255));
-		if (ip_text) {
-			int ix = screen->w - ip_text->w - SCALE1(PADDING + BUTTON_MARGIN);
-			int iy = bar_y + (bar_h - ip_text->h) / 2;
-			SDL_BlitSurface(ip_text, NULL, screen, &(SDL_Rect){ix, iy});
-			SDL_FreeSurface(ip_text);
+		SDL_Surface* ht = TTF_RenderUTF8_Blended(font.tiny, hint_text,
+												 uintToColour(THEME_COLOR6_255));
+		if (ht) {
+			int ix = screen->w - ht->w - SCALE1(PADDING + BUTTON_MARGIN);
+			int iy = bar_y + (bar_h - ht->h) / 2;
+			SDL_BlitSurface(ht, NULL, screen, &(SDL_Rect){ix, iy});
+			SDL_FreeSurface(ht);
 		}
 	}
 
@@ -478,19 +714,44 @@ void QuickMenu_render(int lastScreen, IndicatorType show_setting, int ow,
 			case QUICK_PAK_STORE:
 				asset = ASSET_STORE;
 				break;
+			case QUICK_SCREENRECORD:
+				asset = -1; // use PNG icon instead
+				break;
+			case QUICK_SCREENSHOT:
+				asset = -1; // use PNG icon instead
+				break;
 			default:
 				break;
 			}
 
-			SDL_Rect rect;
-			GFX_assetRect(asset, &rect);
-			int x = item_rect.x;
-			int y = item_rect.y;
-			x += (SCALE1(PILL_SIZE) - rect.w) / 2;
-			y += (SCALE1(PILL_SIZE) - rect.h) / 2;
-
-			GFX_blitAssetColor(asset, NULL, screen, &(SDL_Rect){x, y},
-							   icon_color);
+			if (asset >= 0) {
+				SDL_Rect rect;
+				GFX_assetRect(asset, &rect);
+				int x = item_rect.x + (SCALE1(PILL_SIZE) - rect.w) / 2;
+				int y = item_rect.y + (SCALE1(PILL_SIZE) - rect.h) / 2;
+				GFX_blitAssetColor(asset, NULL, screen, &(SDL_Rect){x, y},
+								   icon_color);
+			} else if (item->quickId == QUICK_SCREENRECORD) {
+				bool rec_active = qm_is_recording();
+				SDL_Surface* icon = qm_get_record_icon();
+				if (icon) {
+					int x = item_rect.x + (SCALE1(PILL_SIZE) - icon->w) / 2;
+					int y = item_rect.y + (SCALE1(PILL_SIZE) - icon->h) / 2;
+					GFX_blitSurfaceColor(icon, NULL, screen,
+										 &(SDL_Rect){x, y, 0, 0},
+										 rec_active ? 0xFF0000 : icon_color);
+				}
+			} else if (item->quickId == QUICK_SCREENSHOT) {
+				bool ss_active = qm_is_screenshot_active();
+				SDL_Surface* icon = qm_get_screenshot_icon();
+				if (icon) {
+					int x = item_rect.x + (SCALE1(PILL_SIZE) - icon->w) / 2;
+					int y = item_rect.y + (SCALE1(PILL_SIZE) - icon->h) / 2;
+					GFX_blitSurfaceColor(icon, NULL, screen,
+										 &(SDL_Rect){x, y, 0, 0},
+										 ss_active ? 0xFF0000 : icon_color);
+				}
+			}
 
 			ox += item_rect.w + SCALE1(MENU_TOGGLE_MARGIN);
 		}

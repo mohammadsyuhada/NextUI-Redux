@@ -326,7 +326,7 @@ static int GameList_handleInput(unsigned long now, int currentScreen,
 			confirm_shortcut_entry = NULL;
 			dirty = true;
 		}
-	} else if (total > 0 && resume.can_resume && PAD_justReleased(BTN_RESUME)) {
+	} else if (total > 0 && resume.can_resume && PAD_justReleased(BTN_RESUME) && !PAD_isPressed(BTN_L2) && !PAD_isPressed(BTN_R2)) {
 		resume.should_resume = true;
 		Entry_open(entry);
 		dirty = true;

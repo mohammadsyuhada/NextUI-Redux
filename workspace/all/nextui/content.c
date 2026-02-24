@@ -765,12 +765,6 @@ Array* getQuickToggles(int simple_mode) {
 		}
 	}
 
-	Entry* store = entryFromPakName("Pak Store");
-	if (store) {
-		store->quickId = QUICK_PAK_STORE;
-		Array_push(entries, store);
-	}
-
 	if (WIFI_supported()) {
 		Entry* wifi = Entry_new("Wifi", ENTRY_DIP);
 		wifi->quickId = QUICK_WIFI;
@@ -781,10 +775,17 @@ Array* getQuickToggles(int simple_mode) {
 		bt->quickId = QUICK_BLUETOOTH;
 		Array_push(entries, bt);
 	}
-	if (PLAT_supportsDeepSleep() && !simple_mode) {
-		Entry* sleep = Entry_new("Sleep", ENTRY_DIP);
-		sleep->quickId = QUICK_SLEEP;
-		Array_push(entries, sleep);
+	{
+		bool is_rec = access("/tmp/screenrecorder.pid", F_OK) == 0;
+		Entry* rec = Entry_new(is_rec ? "Recording" : "Record", ENTRY_DIP);
+		rec->quickId = QUICK_SCREENRECORD;
+		Array_push(entries, rec);
+	}
+	{
+		bool is_ss = access("/tmp/screenshot.pid", F_OK) == 0;
+		Entry* ss = Entry_new(is_ss ? "Screenshot On" : "Screenshot", ENTRY_DIP);
+		ss->quickId = QUICK_SCREENSHOT;
+		Array_push(entries, ss);
 	}
 	{
 		Entry* reboot = Entry_new("Reboot", ENTRY_DIP);

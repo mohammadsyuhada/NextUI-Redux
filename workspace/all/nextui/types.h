@@ -60,6 +60,8 @@ enum QuickAction {
 	QUICK_POWEROFF,
 	QUICK_SETTINGS,
 	QUICK_PAK_STORE,
+	QUICK_SCREENRECORD,
+	QUICK_SCREENSHOT,
 };
 
 typedef struct Entry {

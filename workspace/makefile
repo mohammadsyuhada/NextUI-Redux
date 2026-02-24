@@ -55,6 +55,7 @@ endif
 	cd ./all/bootlogo/ && make
 	cd ./all/audiomon && make all
 	cd ./all/show2/ && make
+	cd ./all/screenshot/ && make
 	cd ./all/musicplayer/ && make
 	cd ./all/mediaplayer/ && make
 endif
@@ -100,6 +101,7 @@ endif
 	cd ./all/nextval/ && make clean
 	cd ./all/settings/ && make clean
 	cd ./all/updater/ && make clean
+	cd ./all/screenshot/ && make clean
 	cd ./all/audiomon/ && make clean
 	cd ./all/musicplayer/ && make clean
 	cd ./all/mediaplayer/ && make clean
