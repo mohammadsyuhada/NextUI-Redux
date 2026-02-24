@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <errno.h>
-
 #include "vp_defines.h"
 #include "api.h"
 #include "msettings.h"
@@ -13,6 +12,56 @@
 
 // PID of the currently running ffplay child process (0 = none)
 static pid_t ffplay_pid = 0;
+
+// New screen surface after TG5050 display recovery (NULL = no recovery needed)
+static SDL_Surface* reinit_screen = NULL;
+
+// Whether display has been released for an external binary
+static bool display_released = false;
+
+// Defined in generic_video.c — only the video pipeline, no fonts/config/assets.
+extern void PLAT_quitVideo(void);
+extern SDL_Surface* PLAT_initVideo(void);
+
+// TG5050: Release display BEFORE launching an external binary (ffplay, keyboard, etc.)
+// so only one process uses KMSDRM at a time. Prevents DRM master conflicts and
+// the stale CRTC "flip pending" state that causes permanent EBUSY pageflips.
+// No-op on non-TG5050 platforms.
+void FfplayEngine_prepareForExternal(void) {
+	if (strcmp(PLATFORM, "tg5050") != 0)
+		return;
+
+	// Keep SDL alive during video subsystem teardown.
+	// PLAT_quitVideo calls SDL_QuitSubSystem(SDL_INIT_VIDEO) — if no other
+	// subsystem is alive, SDL would fully quit and lose all state.
+	SDL_InitSubSystem(SDL_INIT_EVENTS);
+
+	PLAT_quitVideo();
+	display_released = true;
+
+	LOG_info("Display released for external binary\n");
+}
+
+// TG5050: Restore display AFTER an external binary exits.
+// Creates a fresh video pipeline (window, renderer, GL context, textures)
+// which forces drmModeSetCrtc to cleanly acquire DRM master.
+// Callers MUST check FfplayEngine_getReinitScreen() for the new screen pointer.
+// No-op if prepareForExternal was not called.
+void FfplayEngine_recoverDisplay(void) {
+	if (!display_released)
+		return;
+
+	reinit_screen = PLAT_initVideo();
+
+	SDL_QuitSubSystem(SDL_INIT_EVENTS);
+	display_released = false;
+
+	LOG_info("Display recovered: new screen=%p\n", (void*)reinit_screen);
+}
+
+SDL_Surface* FfplayEngine_getReinitScreen(void) {
+	return reinit_screen;
+}
 
 // Check if Bluetooth audio is active (via msettings or .asoundrc)
 static int is_bluetooth_audio(void) {
@@ -183,10 +232,17 @@ static int ffplay_exec(FfplayConfig* config, int use_subs) {
 			   "while read ctrl; do amixer sset \"$ctrl\" 127 2>/dev/null; done");
 	}
 
+	// Mute hardware before ffplay opens audio device to prevent amplifier pop on TG5050
+	int is_tg5050 = (strcmp(PLATFORM, "tg5050") == 0);
+	if (is_tg5050)
+		SetRawVolume(0);
+
 	// Fork and exec ffplay
 	ffplay_pid = fork();
 	if (ffplay_pid < 0) {
 		LOG_error("fork() failed: %s\n", strerror(errno));
+		if (is_tg5050)
+			SetVolume(GetVolume());
 		return -1;
 	}
 
@@ -210,11 +266,22 @@ static int ffplay_exec(FfplayConfig* config, int use_subs) {
 				setenv("FONTCONFIG_FILE", "/tmp/ffplay-fonts.conf", 1);
 			}
 		}
+		// Close inherited file descriptors (especially DRM) before exec.
+		// Prevents the child's ffplay from sharing the parent's DRM fd,
+		// which would cause DRM master conflicts on TG5050.
+		for (int fd = 3; fd < 256; fd++)
+			close(fd);
 		execv(FFPLAY_PATH, argv);
 		_exit(127);
 	}
 
-	// Parent process: wait for ffplay to exit
+	// Parent process: restore hardware volume after ffplay opens audio device
+	if (is_tg5050) {
+		usleep(300000); // 300ms for ffplay to initialize audio
+		SetVolume(GetVolume());
+	}
+
+	// Wait for ffplay to exit
 	int status = 0;
 	int result;
 	do {
@@ -246,12 +313,19 @@ int FfplayEngine_play(FfplayConfig* config) {
 
 	LOG_info("ffplay: playing %s\n", config->path);
 
+	reinit_screen = NULL;
+
 	// Release joysticks so ffplay can use them for input.
-	// GFX is NOT released — ffplay opens its own SDL2 display independently.
 	PAD_quit();
+
+	// TG5050: release display before ffplay so only one process uses KMSDRM
+	FfplayEngine_prepareForExternal();
 
 	int has_subs = (config->subtitle_path[0] != '\0') || (config->subtitle_count > 0);
 	int exit_code = ffplay_exec(config, has_subs);
+
+	// TG5050: restore display after ffplay exits
+	FfplayEngine_recoverDisplay();
 
 	// Re-initialize input and clear stale button states
 	PAD_init();

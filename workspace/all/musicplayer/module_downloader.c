@@ -5,6 +5,7 @@
 #include "api.h"
 #include "module_common.h"
 #include "module_downloader.h"
+#include "display_helper.h"
 #include "module_library.h"
 #include "downloader.h"
 #include "ui_downloader.h"
@@ -69,6 +70,7 @@ ModuleExitReason DownloaderModule_run(SDL_Surface* screen) {
 	}
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		// Handle global input
@@ -117,6 +119,12 @@ ModuleExitReason DownloaderModule_run(SDL_Surface* screen) {
 					PAD_reset();
 					PAD_poll();
 					PAD_reset();
+					// TG5050: display recovery creates a new screen surface
+					{
+						SDL_Surface* ns = DisplayHelper_getReinitScreen();
+						if (ns)
+							screen = ns;
+					}
 					if (query && strlen(query) > 0) {
 						snprintf(search_query, sizeof(search_query), "%s", query);
 						results_scroll = 0;

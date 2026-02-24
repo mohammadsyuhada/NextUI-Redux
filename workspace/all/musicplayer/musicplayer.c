@@ -27,6 +27,7 @@
 #include "settings.h"
 #include "resume.h"
 #include "background.h"
+#include "display_helper.h"
 
 // Global quit flag
 static bool quit = false;
@@ -147,6 +148,13 @@ int main(int argc, char* argv[]) {
 		case MENU_SETTINGS:
 			reason = SettingsModule_run(screen);
 			break;
+		}
+
+		// TG5050: modules may have triggered display recovery (new screen surface)
+		{
+			SDL_Surface* ns = DisplayHelper_getReinitScreen();
+			if (ns)
+				screen = ns;
 		}
 
 		if (reason == MODULE_EXIT_QUIT) {

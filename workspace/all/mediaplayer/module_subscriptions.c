@@ -160,6 +160,7 @@ ModuleExitReason SubscriptionsModule_run(SDL_Surface* screen) {
 	}
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		const SubscriptionList* subs = Subscriptions_getList();
@@ -208,6 +209,13 @@ ModuleExitReason SubscriptionsModule_run(SDL_Surface* screen) {
 
 				ModuleCommon_setAutosleepDisabled(true);
 				FfplayEngine_play(&config);
+
+				// TG5050: display recovery creates a new screen surface
+				{
+					SDL_Surface* ns = FfplayEngine_getReinitScreen();
+					if (ns)
+						screen = ns;
+				}
 
 				Icons_init();
 				memset(&sub_scroll, 0, sizeof(sub_scroll));

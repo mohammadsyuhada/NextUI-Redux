@@ -5,6 +5,7 @@
 #include "playlist_m3u.h"
 #include "ui_keyboard.h"
 #include "ui_listdialog.h"
+#include "display_helper.h"
 
 // Internal state
 static bool active = false;
@@ -76,9 +77,11 @@ int AddToPlaylist_handleInput(void) {
 	if (result.action == LISTDIALOG_SELECTED) {
 		if (result.index == 0) {
 			// New Playlist
+			DisplayHelper_prepareForExternal();
 			char* name = UIKeyboard_open("Playlist name");
 			PAD_poll();
 			PAD_reset();
+			DisplayHelper_recoverDisplay();
 			if (name && name[0]) {
 				if (M3U_create(name) == 0) {
 					char new_path[512];

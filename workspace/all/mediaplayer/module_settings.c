@@ -28,6 +28,7 @@ ModuleExitReason SettingsModule_run(SDL_Surface* screen) {
 	IndicatorType show_setting = INDICATOR_NONE;
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		// Handle global input first

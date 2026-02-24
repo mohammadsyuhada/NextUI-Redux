@@ -72,6 +72,7 @@ ModuleExitReason IPTVModule_run(SDL_Surface* screen) {
 	show_confirm = false;
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		// Handle confirmation dialog
@@ -282,6 +283,13 @@ ModuleExitReason IPTVModule_run(SDL_Surface* screen) {
 
 				ModuleCommon_setAutosleepDisabled(true);
 				FfplayEngine_play(&config);
+
+				// TG5050: display recovery creates a new screen surface
+				{
+					SDL_Surface* ns = FfplayEngine_getReinitScreen();
+					if (ns)
+						screen = ns;
+				}
 
 				Icons_init();
 				memset(&iptv_scroll, 0, sizeof(iptv_scroll));

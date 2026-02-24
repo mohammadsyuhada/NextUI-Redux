@@ -17,6 +17,7 @@
 #include "module_youtube.h"
 #include "module_iptv.h"
 #include "module_settings.h"
+#include "ffplay_engine.h"
 #include "settings.h"
 #include "ytdlp_updater.h"
 #include "youtube.h"
@@ -62,6 +63,25 @@ int main(int argc, char* argv[]) {
 	}
 
 	InitSettings();
+
+	// TG5050: warm up audio codec while muted to prevent amplifier pop on first playback.
+	// After reboot the codec is powered off — mixer writes don't reach the analog output
+	// until the codec powers on, so the first PCM open would pop without this.
+	if (strcmp(PLATFORM, "tg5050") == 0) {
+		SetRawVolume(0);
+		SDL_InitSubSystem(SDL_INIT_AUDIO);
+		SDL_AudioSpec want = {0};
+		want.freq = 44100;
+		want.format = AUDIO_S16SYS;
+		want.channels = 2;
+		want.samples = 1024;
+		SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+		if (dev > 0)
+			SDL_CloseAudioDevice(dev);
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
+		SetVolume(GetVolume());
+	}
+
 	PAD_init();
 	PWR_init();
 	// No WIFI_init at startup - WiFi enabled on demand
@@ -116,6 +136,13 @@ int main(int argc, char* argv[]) {
 		case MENU_SETTINGS:
 			reason = SettingsModule_run(screen);
 			break;
+		}
+
+		// TG5050: modules may have triggered display recovery (new screen surface)
+		{
+			SDL_Surface* ns = FfplayEngine_getReinitScreen();
+			if (ns)
+				screen = ns;
 		}
 
 		// Re-enable autosleep when returning to main menu

@@ -39,13 +39,24 @@ static bool subscribe_fetch_pending = false;
 static char subscribe_fetch_channel_id[64] = "";
 
 // Start a new search flow: keyboard -> WiFi -> yt-dlp
-static bool start_search(SDL_Surface* screen, IndicatorType show_setting) {
+static bool start_search(SDL_Surface** screenp, IndicatorType show_setting) {
+	// TG5050: release display before keyboard (external binary takes DRM master)
+	FfplayEngine_prepareForExternal();
+
 	char* query = UIKeyboard_open("Search YouTube");
 
 	// Flush stale button state from keyboard (B press to exit keyboard
 	// would otherwise be detected by our main loop)
 	PAD_poll();
 	PAD_reset();
+
+	// TG5050: restore display after keyboard exits
+	FfplayEngine_recoverDisplay();
+	{
+		SDL_Surface* ns = FfplayEngine_getReinitScreen();
+		if (ns)
+			*screenp = ns;
+	}
 
 	if (!query)
 		return false;
@@ -59,7 +70,7 @@ static bool start_search(SDL_Surface* screen, IndicatorType show_setting) {
 	// Re-init GFX/PAD after keyboard (it uses external binary)
 	Icons_init();
 
-	Wifi_ensureConnected(screen, show_setting);
+	Wifi_ensureConnected(*screenp, show_setting);
 
 	YouTube_searchAsync(query);
 	free(query);
@@ -82,6 +93,7 @@ ModuleExitReason YouTubeModule_run(SDL_Surface* screen) {
 	memset(&yt_scroll, 0, sizeof(yt_scroll));
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		// Check if background subscribe fetch completed
@@ -138,6 +150,12 @@ ModuleExitReason YouTubeModule_run(SDL_Surface* screen) {
 					// Run subscriptions module inline
 					GFX_clearLayers(LAYER_SCROLLTEXT);
 					ModuleExitReason reason = SubscriptionsModule_run(screen);
+					// TG5050: subscriptions module may have triggered display recovery
+					{
+						SDL_Surface* ns = FfplayEngine_getReinitScreen();
+						if (ns)
+							screen = ns;
+					}
 					if (reason == MODULE_EXIT_QUIT) {
 						YouTube_cancelChannelInfo();
 						if (carousel_initialized) {
@@ -194,6 +212,13 @@ ModuleExitReason YouTubeModule_run(SDL_Surface* screen) {
 				ModuleCommon_setAutosleepDisabled(true);
 
 				FfplayEngine_play(&config);
+
+				// TG5050: display recovery creates a new screen surface
+				{
+					SDL_Surface* ns = FfplayEngine_getReinitScreen();
+					if (ns)
+						screen = ns;
+				}
 
 				// Re-init after ffplay (icons may need refresh)
 				Icons_init();
@@ -430,7 +455,7 @@ ModuleExitReason YouTubeModule_run(SDL_Surface* screen) {
 			continue;
 		} else if (PAD_justPressed(BTN_Y)) {
 			// Y button: new search
-			if (start_search(screen, show_setting)) {
+			if (start_search(&screen, show_setting)) {
 				state = YT_STATE_SEARCHING;
 				dirty = 1;
 			} else {
@@ -476,7 +501,7 @@ ModuleExitReason YouTubeModule_run(SDL_Surface* screen) {
 			}
 		} else if (state == YT_STATE_IDLE) {
 			// No results yet, auto-open search on first entry
-			if (start_search(screen, show_setting)) {
+			if (start_search(&screen, show_setting)) {
 				state = YT_STATE_SEARCHING;
 				dirty = 1;
 			} else {

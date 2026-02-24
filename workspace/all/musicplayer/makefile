@@ -52,7 +52,7 @@ OPUS_INCDIR = -I./include/libogg -I./include/libopus/include -I./include/opusfil
 OPUS_CFLAGS = -O2 -fomit-frame-pointer -DOPUS_BUILD -DVAR_ARRAYS -DHAVE_LRINTF \
               -DOP_DISABLE_HTTP -DOP_DISABLE_FLOAT_API -std=gnu99
 
-SOURCE = $(TARGET).c player.c playlist.c playlist_m3u.c radio.c radio_net.c album_art.c lyrics.c radio_hls.c radio_curated.c downloader.c \
+SOURCE = $(TARGET).c player.c playlist.c playlist_m3u.c radio.c radio_net.c album_art.c lyrics.c radio_hls.c radio_curated.c downloader.c display_helper.c \
          podcast.c podcast_rss.c podcast_search.c http_download.c wget_fetch.c wifi.c settings.c resume.c add_to_playlist.c background.c \
          module_common.c module_menu.c module_library.c module_player.c module_playlist.c module_radio.c module_podcast.c module_downloader.c module_settings.c \
          ui_fonts.c ui_icons.c ui_utils.c browser.c ui_album_art.c ui_main.c ui_music.c ui_radio.c ui_downloader.c ui_podcast.c ui_playlist.c ui_settings.c \

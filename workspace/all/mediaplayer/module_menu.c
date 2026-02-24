@@ -37,6 +37,7 @@ int MenuModule_run(SDL_Surface* screen) {
 	int total_items = MENU_ITEM_COUNT;
 
 	while (1) {
+		GFX_startFrame();
 		PAD_poll();
 
 		// Handle global input first (START dialogs, power)
