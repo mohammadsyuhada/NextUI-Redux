@@ -1391,9 +1391,11 @@ static void reset_ra_page(void) {
 }
 
 #define EMULIST_CACHE_PATH "/tmp/emulist_cache.txt"
+#define ROMINDEX_CACHE_PATH "/tmp/romindex_cache.txt"
 static SettingItem* refresh_emulist_item = NULL;
 static void refresh_emulist(void) {
 	unlink(EMULIST_CACHE_PATH);
+	unlink(ROMINDEX_CACHE_PATH);
 	if (refresh_emulist_item)
 		refresh_emulist_item->desc = "Done! Emulator list will refresh on next launch.";
 }
@@ -1584,7 +1586,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	}
 
 	system_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
-		"Refresh emulator list", "Clears the cached emulator list so it rescans on next launch.",
+		"Refresh emulator/roms list", "Clears the cached emulator/roms list so it rescans on next launch.",
 		refresh_emulist);
 	refresh_emulist_item = &system_items[idx - 1];
 	system_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(

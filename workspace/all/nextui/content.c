@@ -9,6 +9,7 @@
 static bool _simple_mode = false;
 
 #define EMULIST_CACHE_PATH "/tmp/emulist_cache.txt"
+#define ROMINDEX_CACHE_PATH "/tmp/romindex_cache.txt"
 
 void Content_setSimpleMode(bool mode) {
 	_simple_mode = mode;
@@ -378,8 +379,78 @@ static Array* readRomsCache(void) {
 	return entries;
 }
 
+static void writeRomIndexCache(Array* entries) {
+	FILE* file = fopen(ROMINDEX_CACHE_PATH, "w");
+	if (!file)
+		return;
+	for (int i = 0; i < entries->count; i++) {
+		Entry* entry = entries->items[i];
+		fputs(entry->path, file);
+		fputc('\t', file);
+		fputs(entry->name, file);
+		fputc('\n', file);
+	}
+	fclose(file);
+}
+
+static Array* readRomIndexCache(void) {
+	FILE* file = fopen(ROMINDEX_CACHE_PATH, "r");
+	if (!file)
+		return NULL;
+
+	Array* entries = Array_new();
+	char line[MAX_PATH * 2];
+	while (fgets(line, sizeof(line), file) != NULL) {
+		normalizeNewline(line);
+		trimTrailingNewlines(line);
+		if (strlen(line) == 0)
+			continue;
+
+		char* tab = strchr(line, '\t');
+		if (!tab) {
+			EntryArray_free(entries);
+			fclose(file);
+			return NULL;
+		}
+		*tab = '\0';
+		char* path = line;
+		char* name = tab + 1;
+		Array_push(entries, Entry_newNamed(path, ENTRY_ROM, name));
+	}
+	fclose(file);
+	return entries;
+}
+
 void Content_invalidateEmulist(void) {
 	unlink(EMULIST_CACHE_PATH);
+	unlink(ROMINDEX_CACHE_PATH);
+}
+
+Array* Content_searchRoms(const char* query) {
+	Array* all_roms = readRomIndexCache();
+	if (!all_roms) {
+		// Force a build by calling getRoms() (which populates both caches)
+		Array* consoles = getRoms();
+		EntryArray_free(consoles);
+		all_roms = readRomIndexCache();
+		if (!all_roms)
+			return Array_new();
+	}
+
+	if (!query || strlen(query) == 0)
+		return all_roms;
+
+	Array* results = Array_new();
+	for (int i = 0; i < all_roms->count; i++) {
+		Entry* entry = all_roms->items[i];
+		if (containsString(entry->name, (char*)query)) {
+			Array_push(results, entry);
+		} else {
+			Entry_free(entry);
+		}
+	}
+	Array_free(all_roms);
+	return results;
 }
 
 Array* getRoms(void) {
@@ -467,6 +538,43 @@ Array* getRoms(void) {
 				EntryArray_sort(entries);
 			Hash_free(map);
 		}
+	}
+
+	// Build ROM index: scan all console dirs for individual ROMs
+	{
+		Array* rom_index = Array_new();
+		for (int i = 0; i < entries->count; i++) {
+			Entry* console_entry = entries->items[i];
+			char* console_name = console_entry->name;
+
+			DIR* rom_dh = opendir(console_entry->path);
+			if (!rom_dh)
+				continue;
+
+			struct dirent* rom_dp;
+			char rom_path[MAX_PATH];
+			while ((rom_dp = readdir(rom_dh)) != NULL) {
+				if (hide(rom_dp->d_name))
+					continue;
+				if (rom_dp->d_type == DT_DIR)
+					continue;
+
+				snprintf(rom_path, sizeof(rom_path), "%s/%s",
+						 console_entry->path, rom_dp->d_name);
+
+				char display_name[MAX_PATH];
+				getDisplayName(rom_path, display_name);
+				char full_display[MAX_PATH];
+				snprintf(full_display, sizeof(full_display), "%s (%s)",
+						 display_name, console_name);
+
+				Array_push(rom_index, Entry_newNamed(rom_path, ENTRY_ROM, full_display));
+			}
+			closedir(rom_dh);
+		}
+		EntryArray_sort(rom_index);
+		writeRomIndexCache(rom_index);
+		EntryArray_free(rom_index);
 	}
 
 	// Write cache for next launch

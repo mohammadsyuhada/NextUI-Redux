@@ -39,4 +39,7 @@ void addEntries(Array* entries, char* path);
 Array* getQuickEntries(int simple_mode);
 Array* getQuickToggles(int simple_mode);
 
+// Search
+Array* Content_searchRoms(const char* query);
+
 #endif // CONTENT_H

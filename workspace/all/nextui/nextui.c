@@ -23,6 +23,7 @@
 #include "imgloader.h"
 #include "launcher.h"
 #include "quickmenu.h"
+#include "search.h"
 #include "ui_list.h"
 #include "recents.h"
 #include "types.h"
@@ -49,6 +50,7 @@ static void Menu_init(void) {
 	loadLast(); // restore state when available
 
 	QuickMenu_init(simple_mode);
+	Search_init();
 }
 static void Menu_quit(void) {
 	Recents_quit();
@@ -56,6 +58,7 @@ static void Menu_quit(void) {
 	DirectoryArray_free(stack);
 
 	QuickMenu_quit();
+	Search_quit();
 }
 
 ///////////////////////////////////////
@@ -331,6 +334,23 @@ static int GameList_handleInput(unsigned long now, int currentScreen,
 		Entry_open(entry);
 		dirty = true;
 	}
+	// Y to search at root
+	else if (stack->count == 1 && PAD_justReleased(BTN_Y)) {
+		if (Search_open()) {
+			currentScreen = SCREEN_SEARCH;
+			animationdirection = SLIDE_LEFT;
+			dirty = true;
+			GFX_clearLayers(LAYER_SCROLLTEXT);
+			if (list_scroll.cached_scroll_surface) {
+				SDL_FreeSurface(list_scroll.cached_scroll_surface);
+				list_scroll.cached_scroll_surface = NULL;
+			}
+			list_scroll.text[0] = '\0';
+			list_scroll.needs_scroll = false;
+			list_scroll.scroll_active = false;
+		}
+		return currentScreen;
+	}
 	// Y to add/remove shortcut (only in Tools folder or console directory)
 	else if (total > 0 &&
 			 (Shortcuts_isInToolsFolder(top->path) ||
@@ -465,6 +485,19 @@ int main(int argc, char* argv[]) {
 					animationdirection = SLIDE_DOWN;
 			}
 			gsanimdir = gsr.gsanimdir;
+		} else if (currentScreen == SCREEN_SEARCH) {
+			SearchResult sr = Search_handleInput(now);
+			if (sr.dirty)
+				dirty = true;
+			if (sr.folderbgchanged)
+				folderbgchanged = 1;
+			if (sr.startgame)
+				startgame = true;
+			if (sr.screen != SCREEN_SEARCH) {
+				currentScreen = sr.screen;
+				if (currentScreen == SCREEN_GAMELIST)
+					animationdirection = SLIDE_RIGHT;
+			}
 		} else {
 			int prevScreen = currentScreen;
 			currentScreen =
@@ -501,6 +534,8 @@ int main(int argc, char* argv[]) {
 			const char* menu_title;
 			if (currentScreen == SCREEN_GAMESWITCHER)
 				menu_title = GameSwitcher_getSelectedName();
+			else if (currentScreen == SCREEN_SEARCH)
+				menu_title = "Search";
 			else
 				menu_title = stack->count > 1 ? top->name : "NextUI Redux";
 			int ow = UI_renderMenuBar(screen, menu_title);
@@ -524,6 +559,9 @@ int main(int argc, char* argv[]) {
 				QuickMenu_render(lastScreen, show_setting, ow,
 								 folderBgPath, sizeof(folderBgPath), blackBG);
 				lastScreen = SCREEN_QUICKMENU;
+			} else if (currentScreen == SCREEN_SEARCH) {
+				Search_render(screen, blackBG, lastScreen);
+				lastScreen = SCREEN_SEARCH;
 			} else if (startgame) {
 				GFX_clearLayers(LAYER_ALL);
 				GFX_clear(screen);
@@ -597,6 +635,13 @@ int main(int argc, char* argv[]) {
 						right_pairs[p++] = Shortcuts_exists(entry->path + strlen(SDCARD_PATH))
 											   ? "UNPIN"
 											   : "PIN";
+					}
+
+					// search hint at root
+					if (!(show_setting && !GetHDMI()) && !GetHDMI() &&
+						stack->count == 1 && total > 0) {
+						right_pairs[p++] = "Y";
+						right_pairs[p++] = "SEARCH";
 					}
 
 					// navigation actions
@@ -738,6 +783,9 @@ int main(int argc, char* argv[]) {
 
 			if (lastScreen == SCREEN_QUICKMENU) {
 				updateBackgroundLayer();
+			} else if (lastScreen == SCREEN_SEARCH) {
+				updateBackgroundLayer();
+				renderThumbnail(1);
 			} else if (lastScreen == SCREEN_GAMELIST) {
 				updateBackgroundLayer();
 				renderThumbnail(1);
@@ -757,7 +805,8 @@ int main(int argc, char* argv[]) {
 			updateBackgroundLayer();
 			renderThumbnail(1);
 			if (currentScreen != SCREEN_GAMESWITCHER &&
-				currentScreen != SCREEN_QUICKMENU) {
+				currentScreen != SCREEN_QUICKMENU &&
+				currentScreen != SCREEN_SEARCH) {
 				if (confirm_shortcut_action != SHORTCUT_NONE) {
 					GFX_clearLayers(LAYER_SCROLLTEXT);
 				} else {
