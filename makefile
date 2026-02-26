@@ -327,14 +327,28 @@ package: tidy
 		cd ./build/PAYLOAD-$$plat && zip -r MinUI.zip .system .tmp_update Tools && cd ../..; \
 		cp ./build/PAYLOAD-$$plat/MinUI.zip ./build/BASE/MinUI-$$plat.zip; \
 		\
+		echo "  resolving bg images for $$plat"; \
+		if [ "$$plat" = "tg5040" ]; then bg_res="1024"; \
+		elif [ "$$plat" = "tg5050" ]; then bg_res="1280"; \
+		fi; \
+		find ./build/BASE/Collections ./build/BASE/Favorites \
+			"./build/BASE/Recently Played" ./build/BASE/Roms \
+			./build/EXTRAS/Roms \
+			-path '*/.media/bg-'"$$bg_res"'.png' 2>/dev/null \
+		| while read f; do \
+			cp "$$f" "$$(dirname "$$f")/bg.png"; \
+		done; \
+		\
 		echo "  creating release zip"; \
 		cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
 			Bios Cheats Collections Favorites Music Overlays \
 			"Recently Played" Roms Saves Shaders trimui *.pakz README.txt \
+			-x '*/bg-*.png' \
 			&& cd ../..; \
 		cd ./build/PAYLOAD-$$plat && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip MinUI.zip && cd ../..; \
 		cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
 			Bios Cheats Roms Saves Overlays README.txt \
+			-x '*/bg-*.png' \
 			&& cd ../..; \
 		cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-$$plat.zip \
 			Emus/$$plat Emus/shared Tools/$$plat \
@@ -342,6 +356,12 @@ package: tidy
 		if [ -d ./build/PAKZ/$$plat ]; then \
 			cd ./build/PAKZ/$$plat && zip -r ../../../releases/$(RELEASE_NAME)-$$plat.zip *.pakz && cd ../../..; \
 		fi; \
+		\
+		echo "  cleaning up generated bg.png"; \
+		find ./build/BASE/Collections ./build/BASE/Favorites \
+			"./build/BASE/Recently Played" ./build/BASE/Roms \
+			./build/EXTRAS/Roms \
+			-name "bg.png" -path '*/.media/*' -delete 2>/dev/null; \
 		\
 		rm -rf ./build/PAYLOAD-$$plat; \
 		echo "# ===== Done: $$plat ====="; \

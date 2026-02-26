@@ -11,15 +11,15 @@ echo "$0" "$@"
 EMU_DIR="$SDCARD_PATH/Emus/shared/Drastic"
 PAK_DIR="$(dirname "$0")"
 
-# libadvdrastic.so (display/input hook) needs libjson-c.so.4 but device may ship libjson-c.so.5
+# Hook code (compiled into SDL2) needs libjson-c.so.4 but device may ship libjson-c.so.5
 if [ ! -f "$EMU_DIR/libs/libjson-c.so.4" ] && [ -f /usr/lib/libjson-c.so.5 ]; then
     mkdir -p "$EMU_DIR/libs"
     cp /usr/lib/libjson-c.so.5 "$EMU_DIR/libs/libjson-c.so.4"
 fi
 
 export PATH="$EMU_DIR:$PATH"
-# NDS.pak libs first (custom SDL2, libadvdrastic), then shared libs
-export LD_LIBRARY_PATH="$PAK_DIR/libs:$EMU_DIR/libs:$LD_LIBRARY_PATH"
+# NDS.pak libs first (hook-patched SDL2), then shared libs, then /usr/lib for libudev
+export LD_LIBRARY_PATH="$PAK_DIR/libs:$EMU_DIR/libs:/usr/lib:$LD_LIBRARY_PATH"
 
 cleanup() {
     rm -f /tmp/stay_awake
@@ -65,9 +65,13 @@ main() {
     mount -o bind "$SDCARD_PATH/Cheats/NDS" "$EMU_DIR/cheats"
     mount -o bind "$SHARED_USERDATA_PATH/NDS-advanced-drastic" "$EMU_DIR/savestates"
 
-    # Launch drastic
+    # Launch drastic — use dummy video driver.
+    # Tell SDL where the gamepad is (udev not running, so SDL can't auto-detect).
     cd "$EMU_DIR"
     export HOME="$EMU_DIR"
+    export SDL_VIDEODRIVER=dummy
+    export SDL_JOYSTICK_DEVICE=/dev/input/event3
+    export SDL_JOYSTICK_DISABLE_UDEV=1
     "$EMU_DIR/drastic" "$*"
 }
 
