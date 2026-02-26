@@ -27,11 +27,48 @@ cleanup() {
     umount "$EMU_DIR/backup" 2>/dev/null || true
     umount "$EMU_DIR/cheats" 2>/dev/null || true
     umount "$EMU_DIR/savestates" 2>/dev/null || true
+
+    # Restore CPU governor (LITTLE cpu0 + BIG cpu4)
+    cpu_state="$USERDATA_PATH/NDS-drastic"
+    if [ -f "$cpu_state/cpu0_governor.txt" ]; then
+        cat "$cpu_state/cpu0_governor.txt" >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        cat "$cpu_state/cpu0_min_freq.txt" >/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 2>/dev/null
+        cat "$cpu_state/cpu0_max_freq.txt" >/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null
+        rm -f "$cpu_state/cpu0_governor.txt" "$cpu_state/cpu0_min_freq.txt" "$cpu_state/cpu0_max_freq.txt"
+    fi
+    if [ -f "$cpu_state/cpu4_governor.txt" ]; then
+        cat "$cpu_state/cpu4_governor.txt" >/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+        cat "$cpu_state/cpu4_min_freq.txt" >/sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
+        cat "$cpu_state/cpu4_max_freq.txt" >/sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq 2>/dev/null
+        rm -f "$cpu_state/cpu4_governor.txt" "$cpu_state/cpu4_min_freq.txt" "$cpu_state/cpu4_max_freq.txt"
+    fi
 }
 
 main() {
     echo "1" >/tmp/stay_awake
     trap "cleanup" EXIT INT TERM HUP QUIT
+
+    # Save current CPU state and set performance mode (LITTLE cpu0 + BIG cpu4)
+    cpu_state="$USERDATA_PATH/NDS-drastic"
+    mkdir -p "$cpu_state"
+
+    # LITTLE cores (Cortex-A55 cpu0): max 1416000
+    cpu0_dir="/sys/devices/system/cpu/cpu0/cpufreq"
+    cat "$cpu0_dir/scaling_governor" >"$cpu_state/cpu0_governor.txt"
+    cat "$cpu0_dir/scaling_min_freq" >"$cpu_state/cpu0_min_freq.txt"
+    cat "$cpu0_dir/scaling_max_freq" >"$cpu_state/cpu0_max_freq.txt"
+    echo performance >"$cpu0_dir/scaling_governor"
+    echo 1416000 >"$cpu0_dir/scaling_min_freq"
+    echo 1416000 >"$cpu0_dir/scaling_max_freq"
+
+    # BIG cores (Cortex-A55 cpu4): max 2160000
+    cpu4_dir="/sys/devices/system/cpu/cpu4/cpufreq"
+    cat "$cpu4_dir/scaling_governor" >"$cpu_state/cpu4_governor.txt"
+    cat "$cpu4_dir/scaling_min_freq" >"$cpu_state/cpu4_min_freq.txt"
+    cat "$cpu4_dir/scaling_max_freq" >"$cpu_state/cpu4_max_freq.txt"
+    echo performance >"$cpu4_dir/scaling_governor"
+    echo 1800000 >"$cpu4_dir/scaling_min_freq"
+    echo 2160000 >"$cpu4_dir/scaling_max_freq"
 
     # Setup external directories
     mkdir -p "$SDCARD_PATH/Saves/NDS"

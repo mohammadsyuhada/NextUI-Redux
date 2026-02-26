@@ -327,7 +327,7 @@ SettingsPage* developer_page_create(DevicePlatform dev_platform) {
 		"Remove macOS junk files (.DS_Store, ._*, .Trashes, etc.)",
 		dev_clean_dotfiles);
 
-	page->title = "Developer";
+	page->title = "Settings | Developer";
 	page->items = items;
 	page->item_count = idx;
 	page->selected = 0;

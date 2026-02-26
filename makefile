@@ -109,6 +109,7 @@ endif
 	cp ./workspace/all/settings/build/$(PLATFORM)/settings.elf ./build/EXTRAS/Tools/$(PLATFORM)/Settings.pak/
 	cp ./workspace/all/musicplayer/build/$(PLATFORM)/musicplayer.elf ./build/EXTRAS/Tools/$(PLATFORM)/Music\ Player.pak/
 	cp ./workspace/all/mediaplayer/build/$(PLATFORM)/mediaplayer.elf ./build/EXTRAS/Tools/$(PLATFORM)/Media\ Player.pak/
+	cp ./workspace/all/portmaster/build/$(PLATFORM)/portmaster.elf ./build/EXTRAS/Tools/$(PLATFORM)/PortMaster.pak/
 ifneq (,$(filter $(PLATFORM),tg5040 tg5050))
 	cp ./workspace/all/bootlogo/build/$(PLATFORM)/bootlogo.elf ./build/EXTRAS/Tools/$(PLATFORM)/Bootlogo.pak/
 ifeq ($(PLATFORM), tg5040)
@@ -240,6 +241,11 @@ setup: name
 	rm -rf ./build/EXTRAS/Emus/shared/Drastic/images
 	# Overlay custom drastic resources (bg, fonts) on top of upstream
 	cp -Rf ./skeleton/EXTRAS/Emus/shared/Drastic/resources/ ./build/EXTRAS/Emus/shared/Drastic/resources/
+
+	# Extract PortMaster Python 3.11 runtime into shared/lib
+	@echo "Extracting Python 3.11 runtime..."
+	tar xzf ./build/SYSTEM/shared/lib/python3.11-aarch64.tar.gz -C ./build/SYSTEM/shared/lib/
+	rm -f ./build/SYSTEM/shared/lib/python3.11-aarch64.tar.gz
 
 	# remove authoring detritus
 	cd ./build && find . -type f -name '.keep' -delete

@@ -560,7 +560,7 @@ SettingsPage* bt_page_create(void) {
 
 	// BT toggle
 	page->items[BT_IDX_TOGGLE] = (SettingItem){
-		.name = "Bluetooth",
+		.name = "Settings | Bluetooth",
 		.desc = "Enable or disable Bluetooth",
 		.type = ITEM_CYCLE,
 		.visible = 1,

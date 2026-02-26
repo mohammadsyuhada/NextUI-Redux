@@ -88,8 +88,9 @@ echo -n 0 > /sys/class/gpio/gpio236/value
 
 #######################################
 
-export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:/usr/trimui/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$SYSTEM_PATH/lib:$SHARED_SYSTEM_PATH/lib:/usr/trimui/lib:$LD_LIBRARY_PATH
 export PATH=$SYSTEM_PATH/bin:$SHARED_SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
+export SSL_CERT_FILE="$SHARED_SYSTEM_PATH/etc/ssl/certs/ca-certificates.crt"
 
 echo before leds `cat /proc/uptime` >> /tmp/nextui_boottime
 

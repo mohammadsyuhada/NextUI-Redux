@@ -1492,7 +1492,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	appearance_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_appearance_page);
-	init_page(&appearance_page, "Appearance", appearance_items, idx, 0);
+	init_page(&appearance_page, "Settings | Appearance", appearance_items, idx, 0);
 
 	// ============================
 	// Display page
@@ -1526,7 +1526,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	display_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_display_page);
-	init_page(&display_page, "Display", display_items, idx, 0);
+	init_page(&display_page, "Settings | Display", display_items, idx, 0);
 
 	// ============================
 	// System page
@@ -1592,7 +1592,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	system_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_system_page);
-	init_page(&system_page, "System", system_items, idx, 0);
+	init_page(&system_page, "Settings | System", system_items, idx, 0);
 
 	// ============================
 	// FN Switch (Mute) page
@@ -1664,7 +1664,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	mute_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_mute_page);
-	init_page(&fn_switch_page, "FN Switch", mute_items, idx, 0);
+	init_page(&fn_switch_page, "Settings | FN Switch", mute_items, idx, 0);
 
 	// ============================
 	// Notifications page
@@ -1688,7 +1688,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	notify_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_notify_page);
-	init_page(&notify_page, "In-game notifications", notify_items, idx, 0);
+	init_page(&notify_page, "Settings | In-game notifications", notify_items, idx, 0);
 
 	// ============================
 	// RetroAchievements page
@@ -1724,7 +1724,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	ra_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Reset to defaults", "Resets all options in this menu to their default values.",
 		reset_ra_page);
-	init_page(&ra_page, "RetroAchievements", ra_items, idx, 0);
+	init_page(&ra_page, "Settings | RetroAchievements", ra_items, idx, 0);
 
 	// ============================
 	// Simple Mode page
@@ -1739,7 +1739,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 		"Settings is hidden in Quick Menu when enabled.", "", NULL);
 	simple_mode_items[idx++] = (SettingItem)ITEM_STATIC_INIT(
 		"To access settings: In Quick Menu, press L2+R2.", "", NULL);
-	init_page(&simple_mode_page, "Simple Mode", simple_mode_items, idx, 0);
+	init_page(&simple_mode_page, "Settings | Simple Mode", simple_mode_items, idx, 0);
 
 	// ============================
 	// About page
@@ -1758,7 +1758,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	about_items[idx++] = (SettingItem)ITEM_BUTTON_INIT(
 		"Updater", "",
 		updater_check_for_updates);
-	init_page(&about_page, "About", about_items, idx, 0);
+	init_page(&about_page, "Settings | About", about_items, idx, 0);
 	about_page.on_show = updater_about_on_show;
 	about_page.on_tick = updater_about_on_tick;
 
@@ -1771,7 +1771,7 @@ static void build_menu_tree(const DeviceInfo* dev) {
 	main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
 		"Appearance", "UI customization", &appearance_page);
 	main_items[idx++] = (SettingItem)ITEM_SUBMENU_INIT(
-		"Notifications", "Save state notifications", &notify_page);
+		"In-game Notifications", "Save state notifications", &notify_page);
 
 	if (has_leds(dev)) {
 		led_page_ptr = led_page_create();

@@ -403,7 +403,7 @@ SettingsPage* led_page_create(void) {
 	}
 
 	memset(&led_root_page, 0, sizeof(SettingsPage));
-	led_root_page.title = "LED Control";
+	led_root_page.title = "Settings | LED Control";
 	led_root_page.items = led_root_items;
 	led_root_page.item_count = idx;
 	led_root_page.selected = 0;

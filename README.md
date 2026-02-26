@@ -62,15 +62,16 @@ New Features:
     - `Quick Menu` slides down on enter and slides up on exit
     - `Game Switcher` slides up on enter and slides down on exit
     - `Page Navigation` slides in from the right on enter and slides out to the left on exit
-- Added `Simple Mode` option in `Settings`.
+- Added `Simple Mode` option in `Settings`
 - Added `Search` function in main menu (Press `Y` to activate)
 - Added jostick and calibration feature in `Input` app
 - Built-in `Screenshot` and `Screen Recorder` option in quick menu
-    - When Screenshot is enabled, press `L2` + `R2` + `X` to capture the screen.
-    - When Screen Recorder is enabled, recording runs in the background automatically.
+    - When Screenshot is enabled, press `L2` + `R2` + `X` to capture the screen
+    - When Screen Recorder is enabled, recording runs in the background automatically
 - Built-in [Music Player](https://github.com/mohammadsyuhada/nextui-music-player)
 - Built-in [Media Player](https://github.com/mohammadsyuhada/nextui-video-player)
-- Pre-install `Drastic NDS` emulator with simplified in-game menu.
+- Bundled `Drastic NDS` emulator with simplified in-game menu
+- Bundled `Portmaster`
 
 Upcoming Features:
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)

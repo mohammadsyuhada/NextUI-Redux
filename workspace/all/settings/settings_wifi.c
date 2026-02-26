@@ -528,7 +528,7 @@ SettingsPage* wifi_page_create(void) {
 	SettingsPage* page = calloc(1, sizeof(SettingsPage));
 	if (!page)
 		return NULL;
-	page->title = "Network";
+	page->title = "Settings | Network";
 	page->is_list = 0;
 	page->dynamic_start = WIFI_STATIC_COUNT;
 	page->max_items = WIFI_MAX_ITEMS;
