@@ -110,6 +110,7 @@ endif
 	cp ./workspace/all/musicplayer/build/$(PLATFORM)/musicplayer.elf ./build/EXTRAS/Tools/$(PLATFORM)/Music\ Player.pak/
 	cp ./workspace/all/mediaplayer/build/$(PLATFORM)/mediaplayer.elf ./build/EXTRAS/Tools/$(PLATFORM)/Media\ Player.pak/
 	cp ./workspace/all/portmaster/build/$(PLATFORM)/portmaster.elf ./build/EXTRAS/Tools/$(PLATFORM)/PortMaster.pak/
+	cp ./workspace/all/sync/build/$(PLATFORM)/sync.elf ./build/EXTRAS/Tools/$(PLATFORM)/Device\ Sync.pak/
 ifneq (,$(filter $(PLATFORM),tg5040 tg5050))
 	cp ./workspace/all/bootlogo/build/$(PLATFORM)/bootlogo.elf ./build/EXTRAS/Tools/$(PLATFORM)/Bootlogo.pak/
 ifeq ($(PLATFORM), tg5040)

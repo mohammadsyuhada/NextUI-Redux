@@ -72,6 +72,7 @@ New Features:
 - Built-in [Media Player](https://github.com/mohammadsyuhada/nextui-video-player)
 - Bundled `Drastic NDS` emulator with simplified in-game menu
 - Bundled `Portmaster`
+- Added `Device Sync` to sync game saves, states, and user settings across devices. 
 
 Upcoming Features:
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)

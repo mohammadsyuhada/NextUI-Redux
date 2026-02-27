@@ -752,6 +752,7 @@ int main(int argc, char* argv[]) {
 						folderbgchanged = 1;
 					}
 					GFX_clearLayers(LAYER_TRANSITION);
+					GFX_clearLayers(LAYER_THUMBNAIL);
 					if (menuBarSurface)
 						GFX_drawOnLayer(menuBarSurface, 0, 0, screen->w,
 										menuBarSurface->h, 1.0f, 0, LAYER_IDK2);
