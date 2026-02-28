@@ -4,6 +4,8 @@
 *.so
 !workspace/all/musicplayer/include/fdk_aac/lib/*.so*
 !skeleton/EXTRAS/Emus/**/libs/*.so
+!skeleton/EXTRAS/Emus/shared/mupen64plus/*.so
+!skeleton/EXTRAS/Emus/**/N64.pak/*.so
 *.elf
 *.dtb
 *.zip
@@ -43,8 +45,8 @@ audiomon.elf
 **/tmp
 
 # Advanced drastic base files (fetched at build time from trngaje/advanced_drastic)
-skeleton/EXTRAS/Emus/shared/Drastic/*
-!skeleton/EXTRAS/Emus/shared/Drastic/resources/
+skeleton/EXTRAS/Emus/shared/drastic/*
+!skeleton/EXTRAS/Emus/shared/drastic/resources/
 
 workspace/hash.txt
 workspace/readmes

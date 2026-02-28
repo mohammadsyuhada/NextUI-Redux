@@ -235,13 +235,13 @@ setup: name
 	# Fetch advanced drastic emulator
 	@echo "Fetching advanced drastic..."
 	curl -sL https://github.com/trngaje/advanced_drastic/archive/refs/heads/master.tar.gz | tar xz -C /tmp
-	mkdir -p ./build/EXTRAS/Emus/shared/Drastic
-	cp -Rf /tmp/advanced_drastic-master/* ./build/EXTRAS/Emus/shared/Drastic/
+	mkdir -p ./build/EXTRAS/Emus/shared/drastic
+	cp -Rf /tmp/advanced_drastic-master/* ./build/EXTRAS/Emus/shared/drastic/
 	rm -rf /tmp/advanced_drastic-master
-	rm -f ./build/EXTRAS/Emus/shared/Drastic/history.md ./build/EXTRAS/Emus/shared/Drastic/launch.sh
-	rm -rf ./build/EXTRAS/Emus/shared/Drastic/images
+	rm -f ./build/EXTRAS/Emus/shared/drastic/history.md ./build/EXTRAS/Emus/shared/drastic/launch.sh
+	rm -rf ./build/EXTRAS/Emus/shared/drastic/images
 	# Overlay custom drastic resources (bg, fonts) on top of upstream
-	cp -Rf ./skeleton/EXTRAS/Emus/shared/Drastic/resources/ ./build/EXTRAS/Emus/shared/Drastic/resources/
+	cp -Rf ./skeleton/EXTRAS/Emus/shared/drastic/resources/ ./build/EXTRAS/Emus/shared/drastic/resources/
 
 	# Extract PortMaster Python 3.11 runtime into shared/lib
 	@echo "Extracting Python 3.11 runtime..."
