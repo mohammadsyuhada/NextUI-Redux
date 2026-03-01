@@ -71,12 +71,23 @@ New Features:
     - When Screen Recorder is enabled, recording runs in the background automatically
 - Built-in [Music Player](https://github.com/mohammadsyuhada/nextui-music-player)
 - Built-in [Media Player](https://github.com/mohammadsyuhada/nextui-video-player)
-- Bundled `Drastic Nintendo DS` emulator with simplified in-game menu
-- Bundled `Mupen64Plus Nintento 64`
-- Bundled `Portmaster`
+- Bundled `Drastic Nintendo DS` emulator
+    - Optimized configurations for both platform.
+    - Simplified in-game menu for TG5050 (Update to TG5040 coming soon)
+- Bundled `Mupen64Plus Nintendo 64` emulator 
+    - Support for high resolution textures (With limitation due to 1GB RAM)
+    - Optimized configurations for both platform.
+    - Custom in-game menu with consistent UI styling with system.
+    - Save state with screenshot.
+- Bundled `Portmaster` in the Tools.
+    - Configured by default with Nintendo input layout
+    - Optimized configurations for both platform.
+
 
 Upcoming Features:
+- Overlay for TG5050
 - Integration with [Netplay](https://github.com/mohammadsyuhada/nextui-netplay)
+- Netplay for `Mupen64Plus Nintendo 64` emulator
 - Minarch refactor
 
 Ongoing focus areas:

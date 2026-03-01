@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <pthread.h>
 #include <msettings.h>
 
@@ -20,6 +21,7 @@
 #define PORTMASTER_DIR SDCARD_PATH "/Emus/shared/PortMaster"
 #define PUGWASH_PATH PORTMASTER_DIR "/pugwash"
 #define BASH_PATH SHARED_BIN_PATH "/bash"
+#define PORTS_ROM_DIR ROMS_PATH "/Ports (PORTS)"
 
 // PortMaster release URL
 #define PM_RELEASE_URL "https://github.com/PortsMaster/PortMaster-GUI/releases/latest/download/PortMaster.zip"
@@ -92,6 +94,91 @@ static bool bash_available(void) {
 static void invalidate_emulist_cache(void) {
 	unlink(EMULIST_CACHE_PATH);
 	unlink(ROMINDEX_CACHE_PATH);
+}
+
+// Sync cover/screenshot images from .ports/*/  to .media/ for NextUI artwork
+static void sync_port_artwork(void) {
+	char ports_dir[512];
+	char media_dir[512];
+	snprintf(ports_dir, sizeof(ports_dir), "%s/.ports", PORTS_ROM_DIR);
+	snprintf(media_dir, sizeof(media_dir), "%s/.media", PORTS_ROM_DIR);
+	mkdir_p(media_dir);
+
+	DIR* dir = opendir(ports_dir);
+	if (!dir)
+		return;
+
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != NULL) {
+		if (entry->d_name[0] == '.')
+			continue;
+
+		// Read port.json to get the .sh script name
+		char json_path[512];
+		snprintf(json_path, sizeof(json_path), "%s/%s/port.json", ports_dir, entry->d_name);
+
+		FILE* fp = fopen(json_path, "r");
+		if (!fp)
+			continue;
+
+		// Extract .sh filename from "items" array (first .sh entry)
+		char line[512];
+		char sh_name[256] = {0};
+		while (fgets(line, sizeof(line), fp)) {
+			char* p = strstr(line, ".sh\"");
+			if (p) {
+				// Walk backwards to find opening quote
+				char* q = p;
+				while (q > line && *q != '"')
+					q--;
+				if (*q == '"') {
+					q++;				 // skip opening quote
+					int len = p + 3 - q; // include ".sh"
+					if (len > 0 && len < (int)sizeof(sh_name)) {
+						strncpy(sh_name, q, len);
+						sh_name[len] = '\0';
+					}
+				}
+				break;
+			}
+		}
+		fclose(fp);
+
+		if (!sh_name[0])
+			continue;
+
+		// Strip .sh to get base name
+		char base_name[256];
+		strncpy(base_name, sh_name, sizeof(base_name));
+		char* dot = strrchr(base_name, '.');
+		if (dot)
+			*dot = '\0';
+
+		// Check if .media/{base_name}.png already exists
+		char media_path[512];
+		snprintf(media_path, sizeof(media_path), "%s/%s.png", media_dir, base_name);
+		if (access(media_path, F_OK) == 0)
+			continue;
+
+		// Find best available image: cover.png > cover.jpg > screenshot.png > screenshot.jpg
+		const char* candidates[] = {"cover.png", "cover.jpg", "screenshot.png", "screenshot.jpg"};
+		char src_path[512] = {0};
+		for (int i = 0; i < 4; i++) {
+			snprintf(src_path, sizeof(src_path), "%s/%s/%s", ports_dir, entry->d_name, candidates[i]);
+			if (access(src_path, F_OK) == 0)
+				break;
+			src_path[0] = '\0';
+		}
+
+		if (!src_path[0])
+			continue;
+
+		char cmd[1024];
+		snprintf(cmd, sizeof(cmd), "cp -f '%s' '%s'", src_path, media_path);
+		system(cmd);
+	}
+
+	closedir(dir);
 }
 
 static void cleanup_portmaster(void) {
@@ -639,6 +726,8 @@ int main(int argc, char* argv[]) {
 			GFX_quit();
 
 			launch_pugwash();
+			sync_port_artwork();
+			invalidate_emulist_cache();
 
 			// Re-init SDL after pugwash returns
 			screen = GFX_init(MODE_MAIN);

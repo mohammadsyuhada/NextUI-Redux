@@ -1,0 +1,326 @@
+{
+  "emulator": "mupen64plus-GLideN64",
+  "config_file": "mupen64plus.cfg",
+  "config_section": "Video-GLideN64",
+  "options_hint": "Restart game to apply changes",
+  "save_state": true,
+  "load_state": true,
+  "sections": [
+    {
+      "name": "Rendering",
+      "items": [
+        {
+          "key": "UseNativeResolutionFactor",
+          "label": "Resolution Factor",
+          "description": "Internal rendering resolution multiplier",
+          "type": "cycle",
+          "values": [0, 1, 2, 3, 4],
+          "labels": ["Auto", "1x", "2x", "3x", "4x"],
+          "default": 2
+        },
+        {
+          "key": "AspectRatio",
+          "label": "Aspect Ratio",
+          "description": "Display aspect ratio mode",
+          "type": "cycle",
+          "values": [0, 1, 2, 3],
+          "labels": ["Auto", "4:3", "16:9", "Stretch"],
+          "default": 1
+        },
+        {
+          "key": "FXAA",
+          "label": "FXAA",
+          "description": "Fast approximate anti-aliasing",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "MultiSampling",
+          "label": "Multi-Sampling",
+          "description": "Multi-sample anti-aliasing level",
+          "type": "cycle",
+          "values": [0, 2, 4, 8],
+          "labels": ["Off", "2x", "4x", "8x"],
+          "default": 0
+        },
+        {
+          "key": "anisotropy",
+          "label": "Anisotropic Filtering",
+          "description": "Anisotropic texture filtering",
+          "type": "cycle",
+          "values": [0, 1, 2, 4, 8, 16],
+          "labels": ["Off", "1x", "2x", "4x", "8x", "16x"],
+          "default": 2
+        },
+        {
+          "key": "bilinearMode",
+          "label": "Bilinear Mode",
+          "description": "Texture bilinear filtering mode",
+          "type": "cycle",
+          "values": [0, 1],
+          "labels": ["3-point", "Standard"],
+          "default": 1
+        },
+        {
+          "key": "EnableHybridFilter",
+          "label": "Hybrid Filter",
+          "description": "Hybrid integer scaling filter",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableHWLighting",
+          "label": "HW Lighting",
+          "description": "Hardware per-pixel lighting",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableCoverage",
+          "label": "Coverage",
+          "description": "Coverage calculation (anti-aliasing)",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableClipping",
+          "label": "Clipping",
+          "description": "Vertex clipping",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "BufferSwapMode",
+          "label": "Buffer Swap Mode",
+          "description": "Frame buffer swap timing",
+          "type": "cycle",
+          "values": [0, 1, 2],
+          "labels": ["On VI update", "On VI origin change", "On buffer update"],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "name": "Texture Enhancement",
+      "items": [
+        {
+          "key": "txFilterMode",
+          "label": "Filter Mode",
+          "description": "Native texture filter mode",
+          "type": "cycle",
+          "values": [0, 1, 2, 3, 4, 5, 6],
+          "labels": ["None", "Smooth 1", "Smooth 2", "Smooth 3", "Smooth 4", "Sharp 1", "Sharp 2"],
+          "default": 0
+        },
+        {
+          "key": "txEnhancementMode",
+          "label": "Enhancement Mode",
+          "description": "Texture enhancement algorithm",
+          "type": "cycle",
+          "values": [0, 1, 2, 3, 4, 5, 6, 7],
+          "labels": ["None", "2xSaI", "HQ2x", "HQ2xS", "LQ2x", "LQ2xS", "HQ4x", "2xBRZ"],
+          "default": 0
+        },
+        {
+          "key": "txDeposterize",
+          "label": "Deposterize",
+          "description": "Reduce posterization in enhanced textures",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "txFilterIgnoreBG",
+          "label": "Ignore BG Textures",
+          "description": "Skip enhancement for background textures",
+          "type": "bool",
+          "default": false
+        }
+      ]
+    },
+    {
+      "name": "Hi-Res Textures",
+      "items": [
+        {
+          "key": "txHiresEnable",
+          "label": "Enable Hi-Res",
+          "description": "Load high-resolution texture packs",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "txHiresTextureFileStorage",
+          "label": "File Storage",
+          "description": "Lazy load textures from files",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "txHiresFullAlphaChannel",
+          "label": "Full Alpha Channel",
+          "description": "Use full alpha channel for hi-res",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "txHresAltCRC",
+          "label": "Alt CRC",
+          "description": "Use alternative CRC for texture matching",
+          "type": "bool",
+          "default": false
+        }
+      ]
+    },
+    {
+      "name": "Dithering",
+      "items": [
+        {
+          "key": "EnableDitheringPattern",
+          "label": "Dithering Pattern",
+          "description": "N64 dithering pattern emulation",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "DitheringQuantization",
+          "label": "Quantization",
+          "description": "Dithering quantization",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "RDRAMImageDitheringMode",
+          "label": "RDRAM Dithering",
+          "description": "RDRAM image dithering algorithm",
+          "type": "cycle",
+          "values": [0, 1, 2, 3],
+          "labels": ["Off", "Bayer", "Magic Square", "Blue Noise"],
+          "default": 3
+        },
+        {
+          "key": "EnableHiresNoiseDithering",
+          "label": "Hi-Res Noise Dithering",
+          "description": "Noise dithering for hi-res output",
+          "type": "bool",
+          "default": false
+        }
+      ]
+    },
+    {
+      "name": "Frame Buffer",
+      "items": [
+        {
+          "key": "EnableFBEmulation",
+          "label": "FB Emulation",
+          "description": "Frame buffer emulation (required for many effects)",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "EnableCopyColorToRDRAM",
+          "label": "Color to RDRAM",
+          "description": "Copy color buffer to N64 memory",
+          "type": "cycle",
+          "values": [0, 1, 2],
+          "labels": ["Off", "Sync", "Async"],
+          "default": 2
+        },
+        {
+          "key": "EnableCopyDepthToRDRAM",
+          "label": "Depth to RDRAM",
+          "description": "Copy depth buffer to N64 memory",
+          "type": "cycle",
+          "values": [0, 1, 2],
+          "labels": ["Off", "From VRAM", "Software"],
+          "default": 2
+        },
+        {
+          "key": "EnableCopyColorFromRDRAM",
+          "label": "Color from RDRAM",
+          "description": "Copy color buffer from N64 memory",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableN64DepthCompare",
+          "label": "N64 Depth Compare",
+          "description": "N64 depth compare (CPU intensive)",
+          "type": "cycle",
+          "values": [0, 1, 2],
+          "labels": ["Off", "Fast", "Compatible"],
+          "default": 0
+        },
+        {
+          "key": "DisableFBInfo",
+          "label": "Disable FB Info",
+          "description": "Disable frame buffer info (performance)",
+          "type": "bool",
+          "default": true
+        }
+      ]
+    },
+    {
+      "name": "Performance",
+      "items": [
+        {
+          "key": "EnableInaccurateTextureCoordinates",
+          "label": "Inaccurate Tex Coords",
+          "description": "Faster but less accurate texture coords",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableLegacyBlending",
+          "label": "Legacy Blending",
+          "description": "Use legacy blending mode",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "EnableShadersStorage",
+          "label": "Shader Cache",
+          "description": "Cache compiled shaders to disk",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "EnableFragmentDepthWrite",
+          "label": "Fragment Depth Write",
+          "description": "Write fragment depth in shader",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "key": "BackgroundsMode",
+          "label": "Backgrounds Mode",
+          "description": "Background rendering mode",
+          "type": "cycle",
+          "values": [0, 1, 2],
+          "labels": ["One piece", "Stripped", "Best performance"],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "name": "Gamma",
+      "items": [
+        {
+          "key": "ForceGammaCorrection",
+          "label": "Force Gamma",
+          "description": "Force gamma correction",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "key": "GammaCorrectionLevel",
+          "label": "Gamma Level",
+          "description": "Gamma correction level",
+          "type": "cycle",
+          "values": [10, 15, 20, 25, 30, 35, 40, 45, 50],
+          "labels": ["1.0", "1.5", "2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0"],
+          "float_scale": 10,
+          "default": 20
+        }
+      ]
+    }
+  ]
+}

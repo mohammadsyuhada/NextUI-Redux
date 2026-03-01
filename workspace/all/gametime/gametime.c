@@ -313,9 +313,43 @@ int main(int argc, char* argv[]) {
 	play_activities = play_activity_find_all();
 	LOG_debug("found %d roms\n", play_activities->count);
 
+	int count = play_activities->count;
+
+	if (count == 0) {
+		bool dirty = true;
+		IndicatorType show_setting = INDICATOR_NONE;
+		while (!app_quit) {
+			GFX_startFrame();
+			PAD_poll();
+
+			if (PAD_justPressed(BTN_B)) {
+				app_quit = true;
+			}
+
+			PWR_update(&dirty, &show_setting, NULL, NULL);
+
+			if (dirty) {
+				GFX_clear(screen);
+				UI_renderMenuBar(screen, "Game Time");
+				UI_renderEmptyState(screen, "No play activity", "Play some games to track your time", NULL);
+				GFX_flip(screen);
+				dirty = false;
+			} else
+				GFX_sync();
+		}
+
+		free_play_activities(play_activities);
+
+		QuitSettings();
+		PWR_quit();
+		PAD_quit();
+		GFX_quit();
+
+		return EXIT_SUCCESS;
+	}
+
 	initLayout();
 	preloadRomImages();
-	int count = play_activities->count;
 	int selected = 0;
 	int start = 0;
 	int end = MIN(count, layout.items_per_page);

@@ -34,6 +34,8 @@ libchdr
 **/other/DinguxCommander
 **/other/DinguxCommander-sdl2
 **/other/NextCommander
+**/other/mupen64plus/*
+!**/other/mupen64plus/README.md
 **/other/351files
 **/other/fbset
 **/other/mkbootimg

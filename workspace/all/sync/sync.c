@@ -1087,11 +1087,12 @@ int main(int argc, char* argv[]) {
 				PWR_enableSleep();
 				PWR_enableAutosleep();
 
+				if (sync_roms) {
+					unlink(EMULIST_CACHE_PATH);
+					unlink(ROMINDEX_CACHE_PATH);
+				}
+
 				if (sync_result == 0) {
-					if (sync_roms) {
-						unlink(EMULIST_CACHE_PATH);
-						unlink(ROMINDEX_CACHE_PATH);
-					}
 					state = STATE_DONE;
 				} else {
 					state = STATE_ERROR;
